@@ -1,0 +1,104 @@
+package br.com.marcusferreira.voting.vote;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import br.com.marcusferreira.voting.AbstractIntegrationTest;
+import br.com.marcusferreira.voting.agenda.dto.AgendaResponse;
+import br.com.marcusferreira.voting.agenda.dto.CreateAgendaRequest;
+import br.com.marcusferreira.voting.member.MemberEligibilityClient;
+import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
+import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
+import br.com.marcusferreira.voting.vote.dto.CastVoteRequest;
+import br.com.marcusferreira.voting.vote.dto.VoteResponse;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+// CPF verification (bonus 1) is disabled by default in application.yaml; it is enabled here
+// to exercise the full path with a mocked MemberEligibilityClient.
+@TestPropertySource(properties = "voting.member.verification-enabled=true")
+class VoteControllerIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired
+    TestRestTemplate restTemplate;
+
+    @MockitoBean
+    MemberEligibilityClient memberEligibilityClient;
+
+    private Long agendaWithOpenSession(String title) {
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest(title, null), AgendaResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            new OpenSessionRequest(120L), VotingSessionResponse.class);
+        return agendaId;
+    }
+
+    @Test
+    void successfulVoteReturns201() {
+        Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
+        Long agendaId = agendaWithOpenSession("Pauta votável");
+
+        ResponseEntity<VoteResponse> response = restTemplate.postForEntity(
+            "/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("associado-1", "12345678900", VoteOption.YES),
+            VoteResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    void voteKeepsPortugueseJsonContract() {
+        Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
+        Long agendaId = agendaWithOpenSession("Pauta contrato voto");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "/api/v1/pautas/" + agendaId + "/votos",
+            new HttpEntity<>("{\"associadoId\":\"associado-json\",\"cpf\":\"12345678900\",\"voto\":\"NAO\"}", headers),
+            String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody())
+            .contains("\"pautaId\":" + agendaId)
+            .contains("\"associadoId\":\"associado-json\"")
+            .contains("\"voto\":\"NAO\"");
+    }
+
+    @Test
+    void votingTwiceWithSameMemberReturns409() {
+        Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
+        Long agendaId = agendaWithOpenSession("Pauta voto duplicado");
+        restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("associado-2", "12345678900", VoteOption.YES), VoteResponse.class);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("associado-2", "12345678900", VoteOption.NO),
+            String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void memberIdLongerThan64CharactersReturns400() {
+        Long agendaId = agendaWithOpenSession("Pauta associadoId longo");
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("a".repeat(65), "12345678900", VoteOption.YES),
+            String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("\"associadoId\":");
+        Mockito.verifyNoInteractions(memberEligibilityClient);
+    }
+}

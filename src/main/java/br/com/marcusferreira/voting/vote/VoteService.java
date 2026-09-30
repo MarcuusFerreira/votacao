@@ -1,0 +1,52 @@
+package br.com.marcusferreira.voting.vote;
+
+import br.com.marcusferreira.voting.common.VotingProperties;
+import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
+import br.com.marcusferreira.voting.member.MemberEligibilityClient;
+import br.com.marcusferreira.voting.session.VotingSession;
+import br.com.marcusferreira.voting.session.VotingSessionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+@Service
+public class VoteService {
+
+    private static final Logger log = LoggerFactory.getLogger(VoteService.class);
+
+    private final VoteJdbcRepository voteRepository;
+    private final VotingSessionService votingSessionService;
+    private final MemberEligibilityClient memberEligibilityClient;
+    private final VotingProperties properties;
+
+    public VoteService(VoteJdbcRepository voteRepository, VotingSessionService votingSessionService,
+                       MemberEligibilityClient memberEligibilityClient, VotingProperties properties) {
+        this.voteRepository = voteRepository;
+        this.votingSessionService = votingSessionService;
+        this.memberEligibilityClient = memberEligibilityClient;
+        this.properties = properties;
+    }
+
+    public void cast(Long agendaId, String memberId, String cpf, VoteOption vote) {
+        try {
+            VotingSession session = votingSessionService.getOpenSessionOrThrow(agendaId);
+            if (properties.member().verificationEnabled()) {
+                memberEligibilityClient.checkEligibility(cpf);
+            }
+            voteRepository.insert(session.getId(), memberId, vote);
+            log.info("Vote registered: agendaId={} memberId={} vote={}", agendaId, memberId, vote);
+        } catch (RuntimeException e) {
+            log.warn("Vote rejected: agendaId={} memberId={} reason={}", agendaId, memberId, e.getMessage());
+            throw e;
+        }
+    }
+
+    public VotingResult tally(Long agendaId) {
+        VotingSession session = votingSessionService.findCurrentSession(agendaId)
+            .orElseThrow(() -> new SessionNotFoundException(agendaId));
+        VotingResult result = voteRepository.count(session.getId());
+        log.info("Votes tallied: agendaId={} sessionId={} yes={} no={}",
+            agendaId, session.getId(), result.yesVotes(), result.noVotes());
+        return result;
+    }
+}

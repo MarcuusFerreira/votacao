@@ -1,6 +1,8 @@
 package br.com.marcusferreira.voting.common;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
@@ -10,12 +12,17 @@ import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
 import br.com.marcusferreira.voting.common.exception.SessionAlreadyOpenException;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
+import br.com.marcusferreira.voting.vote.dto.CastVoteRequest;
+import jakarta.validation.Valid;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ThrowingController.class)
@@ -47,6 +54,9 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/member-not-eligible")
         void memberNotEligible() { throw new MemberNotEligibleException("11111111111"); }
+
+        @PostMapping("/test/validation")
+        CastVoteRequest validation(@Valid @RequestBody CastVoteRequest request) { return request; }
     }
 
     @Test
@@ -82,5 +92,25 @@ class GlobalExceptionHandlerTest {
     @Test
     void memberNotEligibleReturns403() throws Exception {
         mockMvc.perform(get("/test/member-not-eligible")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void validationErrorsUsePortugueseJsonFieldNames() throws Exception {
+        mockMvc.perform(post("/test/validation")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"associadoId\":\"\",\"cpf\":\"123\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.erros.associadoId").value("associadoId é obrigatório"))
+            .andExpect(jsonPath("$.erros.voto").value("voto é obrigatório"));
+    }
+
+    @Test
+    void voteOptionIsExposedAsSimNao() throws Exception {
+        mockMvc.perform(post("/test/validation")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"associadoId\":\"a1\",\"cpf\":\"123\",\"voto\":\"NAO\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.associadoId").value("a1"))
+            .andExpect(jsonPath("$.voto").value("NAO"));
     }
 }
