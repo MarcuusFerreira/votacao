@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import br.com.marcusferreira.voting.AbstractIntegrationTest;
 import br.com.marcusferreira.voting.agenda.dto.AgendaResponse;
 import br.com.marcusferreira.voting.agenda.dto.CreateAgendaRequest;
+import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
+import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -69,5 +71,31 @@ class AgendaControllerIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("\"tipo\":\"SELECAO\"");
         assertThat(response.getBody()).contains("Pauta para listagem");
+    }
+
+    @Test
+    void agendaDetailWithoutSessionOffersOpenSessionButton() {
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest("Pauta sem sessão", "desc"), AgendaResponse.class).getBody().id();
+
+        ResponseEntity<String> response = restTemplate.getForEntity("/api/v1/pautas/" + agendaId, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"tipo\":\"FORMULARIO\"");
+        assertThat(response.getBody()).contains("Abrir sessão");
+    }
+
+    @Test
+    void agendaDetailWithOpenSessionOffersVoteOptions() {
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest("Pauta com sessão aberta", "desc"), AgendaResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            new OpenSessionRequest(120L), VotingSessionResponse.class);
+
+        ResponseEntity<String> response = restTemplate.getForEntity("/api/v1/pautas/" + agendaId, String.class);
+
+        assertThat(response.getBody()).contains("\"tipo\":\"SELECAO\"");
+        assertThat(response.getBody()).contains("\"voto\":\"SIM\"");
+        assertThat(response.getBody()).contains("\"voto\":\"NAO\"");
     }
 }
