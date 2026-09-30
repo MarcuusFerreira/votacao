@@ -7,6 +7,11 @@ spring:
       # throughput is bound by commit latency per connection: 20 -> 40 cut the run from ~24.4s to
       # ~17.3s; 60 was within noise (~16.4s). See README for the full measurements.
       maximum-pool-size: 40
+  threads:
+    virtual:
+      # Request handling on virtual threads (Java 25): blocking on the connection pool or on the
+      # CPF verification service no longer ties up a limited pool of platform threads.
+      enabled: true
   jpa:
     # Open Session in View would keep the JPA connection for the whole request while the vote
     # insert (JDBC) takes a second one; under concurrent votes that starves the pool.
