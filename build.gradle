@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '4.1.1'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.graalvm.buildtools.native' version '1.1.8'
@@ -42,7 +43,31 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'performance'
+	}
+	finalizedBy tasks.named('jacocoTestReport')
+}
+
+// The 100k-vote benchmark is slow, so it runs on demand: ./gradlew performanceTest
+tasks.register('performanceTest', Test) {
+	description = 'Runs the database performance benchmark (tagged "performance").'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'performance'
+	}
+	testLogging {
+		showStandardStreams = true
+	}
+}
+
+tasks.named('jacocoTestReport') {
+	reports {
+		xml.required = true
+		html.required = true
+	}
 }
 
 // Spring AOT is used to speed up the application's startup (see Dockerfile); tests keep

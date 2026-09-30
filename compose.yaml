@@ -7,6 +7,8 @@ services:
       - 'POSTGRES_USER=myuser'
     ports:
       - '5432'
+    volumes:
+      - 'postgres-data:/var/lib/postgresql/data'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U myuser -d mydatabase']
       interval: 2s
@@ -37,3 +39,6 @@ services:
     volumes:
       - './k6:/scripts:ro'
     command: ['run', '/scripts/vote-load.js']
+
+volumes:
+  postgres-data:
