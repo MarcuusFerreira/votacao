@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
+import br.com.marcusferreira.voting.common.exception.CpfAlreadyUsedException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.common.exception.InvalidCpfException;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
@@ -59,6 +60,9 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/member-not-eligible")
         void memberNotEligible() { throw new MemberNotEligibleException("11111111111"); }
+
+        @GetMapping("/test/cpf-already-used")
+        void cpfAlreadyUsed() { throw new CpfAlreadyUsedException("11111111111"); }
 
         @GetMapping("/test/verification-unavailable")
         void verificationUnavailable() { throw new MemberVerificationUnavailableException(new RuntimeException("timeout")); }
@@ -112,7 +116,7 @@ class GlobalExceptionHandlerTest {
     void validationErrorsUsePortugueseJsonFieldNames() throws Exception {
         mockMvc.perform(post("/test/validation")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"associadoId\":\"\",\"cpf\":\"123\"}"))
+                .content("{\"associadoId\":\"\",\"cpf\":\"12345678900\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.erros.associadoId").value("associadoId é obrigatório"))
             .andExpect(jsonPath("$.erros.voto").value("voto é obrigatório"));
@@ -122,7 +126,7 @@ class GlobalExceptionHandlerTest {
     void voteOptionIsExposedAsSimNao() throws Exception {
         mockMvc.perform(post("/test/validation")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"associadoId\":\"a1\",\"cpf\":\"123\",\"voto\":\"NAO\"}"))
+                .content("{\"associadoId\":\"a1\",\"cpf\":\"12345678900\",\"voto\":\"NAO\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.associadoId").value("a1"))
             .andExpect(jsonPath("$.voto").value("NAO"));
@@ -139,7 +143,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void unknownVoteOptionReturnsProblemDetail() throws Exception {
         mockMvc.perform(post("/test/validation").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"associadoId\":\"a1\",\"cpf\":\"123\",\"voto\":\"TALVEZ\"}"))
+                .content("{\"associadoId\":\"a1\",\"cpf\":\"12345678900\",\"voto\":\"TALVEZ\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.detail").value("Corpo da requisição inválido ou malformado"));
@@ -175,5 +179,18 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/verification-unavailable"))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.detail").value("Serviço de verificação de CPF indisponível. Tente novamente em instantes."));
+    }
+
+    @Test
+    void cpfAlreadyUsedReturns409() throws Exception {
+        mockMvc.perform(get("/test/cpf-already-used")).andExpect(status().isConflict());
+    }
+
+    @Test
+    void cpfMustHaveElevenDigits() throws Exception {
+        mockMvc.perform(post("/test/validation").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"associadoId\":\"a1\",\"cpf\":\"123.456\",\"voto\":\"SIM\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.erros.cpf").value("cpf deve conter 11 dígitos numéricos"));
     }
 }

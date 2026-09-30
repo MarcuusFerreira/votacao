@@ -82,6 +82,17 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void sameCpfCannotVoteAgainUnderAnotherMemberId() {
+        Long agendaId = agendaWithOpenSession("Pauta com CPF reutilizado");
+        castVote(agendaId, "associado-a", "11122233344", "SIM");
+
+        ResponseEntity<String> response = castVote(agendaId, "associado-b", "11122233344", "SIM");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).contains("CPF").doesNotContain("11122233344");
+    }
+
+    @Test
     void resultAfterSessionClosesShowsCount() {
         Long agendaId = createAgenda("Pauta com resultado");
         openSession(agendaId, 1);

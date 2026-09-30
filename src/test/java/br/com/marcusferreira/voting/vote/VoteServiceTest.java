@@ -44,14 +44,14 @@ class VoteServiceTest {
     void castChecksSessionAndEligibilityBeforeInsertingWhenVerificationEnabled() {
         VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(true));
         when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
-        when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(true);
+        when(voteRepository.insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES)).thenReturn(true);
 
         service.cast(1L, "associado-1", "12345678900", VoteOption.YES);
 
         InOrder inOrder = inOrder(votingSessionService, memberEligibilityClient, voteRepository);
         inOrder.verify(votingSessionService).getOpenSessionOrThrow(1L);
         inOrder.verify(memberEligibilityClient).checkEligibility("12345678900");
-        inOrder.verify(voteRepository).insertIntoOpenSession(1L, "associado-1", VoteOption.YES);
+        inOrder.verify(voteRepository).insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES);
     }
 
     @Test
@@ -62,13 +62,13 @@ class VoteServiceTest {
         assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))
             .isInstanceOf(SessionClosedException.class);
         verify(memberEligibilityClient, never()).checkEligibility(any());
-        verify(voteRepository, never()).insertIntoOpenSession(any(), any(), any());
+        verify(voteRepository, never()).insertIntoOpenSession(any(), any(), any(), any());
     }
 
     @Test
     void castInsertsWithSingleStatementWhenVerificationDisabled() {
         VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(false));
-        when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(true);
+        when(voteRepository.insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES)).thenReturn(true);
 
         service.cast(1L, "associado-1", "12345678900", VoteOption.YES);
 
@@ -79,7 +79,7 @@ class VoteServiceTest {
     @Test
     void castReportsWhySessionRejectedTheVoteWhenNothingWasInserted() {
         VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(false));
-        when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(false);
+        when(voteRepository.insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES)).thenReturn(false);
         when(votingSessionService.getOpenSessionOrThrow(1L)).thenThrow(new SessionNotFoundException(1L));
 
         assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))
@@ -89,7 +89,7 @@ class VoteServiceTest {
     @Test
     void castTreatsSessionAsClosedWhenNothingWasInsertedButSessionLooksOpen() {
         VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(false));
-        when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(false);
+        when(voteRepository.insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES)).thenReturn(false);
         when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
 
         assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))

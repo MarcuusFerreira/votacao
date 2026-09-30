@@ -4,6 +4,7 @@ import br.com.marcusferreira.voting.vote.VoteOption;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record CastVoteRequest(
@@ -12,6 +13,7 @@ public record CastVoteRequest(
     @Size(max = 64, message = "associadoId deve ter no máximo 64 caracteres")
     String memberId,
     @NotBlank(message = "cpf é obrigatório")
+    @Pattern(regexp = "\\d{11}", message = "cpf deve conter 11 dígitos numéricos")
     String cpf,
     @JsonProperty("voto")
     @NotNull(message = "voto é obrigatório")

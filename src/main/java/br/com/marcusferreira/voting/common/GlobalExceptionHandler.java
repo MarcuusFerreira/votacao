@@ -1,6 +1,7 @@
 package br.com.marcusferreira.voting.common;
 
 import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
+import br.com.marcusferreira.voting.common.exception.CpfAlreadyUsedException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.common.exception.InvalidCpfException;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
@@ -56,6 +57,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DuplicateVoteException.class)
     public ProblemDetail handleDuplicateVote(DuplicateVoteException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(CpfAlreadyUsedException.class)
+    public ProblemDetail handleCpfAlreadyUsed(CpfAlreadyUsedException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 

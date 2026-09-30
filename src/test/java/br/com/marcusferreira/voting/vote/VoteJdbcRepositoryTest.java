@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.marcusferreira.voting.AbstractIntegrationTest;
 import br.com.marcusferreira.voting.agenda.AgendaService;
+import br.com.marcusferreira.voting.common.exception.CpfAlreadyUsedException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
@@ -36,7 +37,7 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         List<String> indexes = jdbcTemplate.queryForList(
             "SELECT indexname FROM pg_indexes WHERE tablename = 'votes'", Map.of(), String.class);
 
-        assertThat(indexes).containsExactlyInAnyOrder("votes_pkey", "uk_votes_session_member");
+        assertThat(indexes).containsExactlyInAnyOrder("votes_pkey", "uk_votes_session_member", "uk_votes_session_cpf");
     }
 
     @Test
@@ -44,9 +45,9 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         Long agendaId = agendaService.create("Pauta para voto", null).getId();
         Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(60)).getId();
 
-        voteRepository.insertIntoOpenSession(agendaId, "associado-1", VoteOption.YES);
-        voteRepository.insertIntoOpenSession(agendaId, "associado-2", VoteOption.YES);
-        voteRepository.insertIntoOpenSession(agendaId, "associado-3", VoteOption.NO);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-1", "00000000001", VoteOption.YES);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-2", "00000000002", VoteOption.YES);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-3", "00000000003", VoteOption.NO);
 
         VotingResult result = voteRepository.count(sessionId);
 
@@ -60,7 +61,7 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         Long agendaId = agendaService.create("Pauta com sessão aberta", null).getId();
         Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(60)).getId();
 
-        boolean inserted = voteRepository.insertIntoOpenSession(agendaId, "associado-aberta", VoteOption.YES);
+        boolean inserted = voteRepository.insertIntoOpenSession(agendaId, "associado-aberta", "00000000004", VoteOption.YES);
 
         assertThat(inserted).isTrue();
         assertThat(voteRepository.count(sessionId).yesVotes()).isEqualTo(1);
@@ -71,7 +72,7 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         Long agendaId = agendaService.create("Pauta com sessão encerrada", null).getId();
         Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(-1)).getId();
 
-        boolean inserted = voteRepository.insertIntoOpenSession(agendaId, "associado-fechada", VoteOption.YES);
+        boolean inserted = voteRepository.insertIntoOpenSession(agendaId, "associado-fechada", "00000000005", VoteOption.YES);
 
         assertThat(inserted).isFalse();
         assertThat(voteRepository.count(sessionId).yesVotes()).isZero();
@@ -81,16 +82,26 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
     void insertIntoOpenSessionSkipsWhenAgendaHasNoSession() {
         Long agendaId = agendaService.create("Pauta sem sessão", null).getId();
 
-        assertThat(voteRepository.insertIntoOpenSession(agendaId, "associado-sem-sessao", VoteOption.YES)).isFalse();
+        assertThat(voteRepository.insertIntoOpenSession(agendaId, "associado-sem-sessao", "00000000006", VoteOption.YES)).isFalse();
+    }
+
+    @Test
+    void insertIntoOpenSessionRejectsSameCpfForAnotherMember() {
+        Long agendaId = agendaService.create("Pauta com CPF repetido", null).getId();
+        votingSessionService.open(agendaId, Duration.ofSeconds(60));
+        voteRepository.insertIntoOpenSession(agendaId, "associado-original", "98765432100", VoteOption.YES);
+
+        assertThatThrownBy(() -> voteRepository.insertIntoOpenSession(agendaId, "outro-associado", "98765432100", VoteOption.NO))
+            .isInstanceOf(CpfAlreadyUsedException.class);
     }
 
     @Test
     void insertIntoOpenSessionThrowsOnDuplicateVote() {
         Long agendaId = agendaService.create("Pauta com voto duplicado", null).getId();
         votingSessionService.open(agendaId, Duration.ofSeconds(60));
-        voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", VoteOption.YES);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", "00000000007", VoteOption.YES);
 
-        assertThatThrownBy(() -> voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", VoteOption.NO))
+        assertThatThrownBy(() -> voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", "00000000007", VoteOption.NO))
             .isInstanceOf(DuplicateVoteException.class);
     }
 }

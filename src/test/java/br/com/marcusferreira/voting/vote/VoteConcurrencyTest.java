@@ -42,10 +42,12 @@ class VoteConcurrencyTest extends AbstractIntegrationTest {
         List<Throwable> failures = new CopyOnWriteArrayList<>();
 
         for (int i = 0; i < threads; i++) {
+            // Same member, distinct CPFs: only the (session, member) uniqueness can reject them.
+            String cpf = "%011d".formatted(i);
             executor.submit(() -> {
                 try {
                     start.await();
-                    if (voteRepository.insertIntoOpenSession(agendaId, "associado-concorrente", VoteOption.YES)) {
+                    if (voteRepository.insertIntoOpenSession(agendaId, "associado-concorrente", cpf, VoteOption.YES)) {
                         successes.incrementAndGet();
                     }
                 } catch (Throwable e) {

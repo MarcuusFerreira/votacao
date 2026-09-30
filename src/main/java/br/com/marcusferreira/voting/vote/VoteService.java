@@ -35,7 +35,7 @@ public class VoteService {
                 votingSessionService.getOpenSessionOrThrow(agendaId);
                 memberEligibilityClient.checkEligibility(cpf);
             }
-            if (!voteRepository.insertIntoOpenSession(agendaId, memberId, vote)) {
+            if (!voteRepository.insertIntoOpenSession(agendaId, memberId, cpf, vote)) {
                 // Nothing inserted: find out whether the session is missing or closed.
                 votingSessionService.getOpenSessionOrThrow(agendaId);
                 throw new SessionClosedException(agendaId);

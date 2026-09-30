@@ -62,7 +62,7 @@ class VoteServiceLoggingTest {
 
     @Test
     void registeredVoteIsLoggedAtDebugToKeepTheHotPathQuiet() {
-        when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(true);
+        when(voteRepository.insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES)).thenReturn(true);
 
         service.cast(1L, "associado-1", "12345678900", VoteOption.YES);
 
@@ -74,7 +74,7 @@ class VoteServiceLoggingTest {
 
     @Test
     void rejectedVoteIsStillLoggedAtWarn() {
-        when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(false);
+        when(voteRepository.insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES)).thenReturn(false);
         when(votingSessionService.getOpenSessionOrThrow(1L)).thenThrow(new SessionNotFoundException(1L));
 
         assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))

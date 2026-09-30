@@ -20,6 +20,9 @@ const VOTES = parseInt(__ENV.VOTES || '1000', 10);
 const VUS = parseInt(__ENV.VUS || '50', 10);
 const SESSION_SECONDS = parseInt(__ENV.SESSION_SECONDS || '30', 10);
 
+// Each member votes with its own CPF: the API allows a CPF only once per agenda.
+const cpfOf = (i) => String(i).padStart(11, '0');
+
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
 const votesAccepted = new Counter('votes_accepted');
@@ -70,7 +73,7 @@ export default function (data) {
     const i = exec.scenario.iterationInTest;
     const res = http.post(`${BASE_URL}/api/v1/pautas/${data.agendaId}/votos`, JSON.stringify({
         associadoId: `carga-k6-${i}`,
-        cpf: '12345678900',
+        cpf: cpfOf(i),
         voto: i % 2 === 0 ? 'SIM' : 'NAO',
     }), { ...JSON_HEADERS, tags: { name: 'cast_vote' } });
 
@@ -81,7 +84,7 @@ export default function (data) {
 export function teardown(data) {
     const duplicate = http.post(`${BASE_URL}/api/v1/pautas/${data.agendaId}/votos`, JSON.stringify({
         associadoId: 'carga-k6-0',
-        cpf: '12345678900',
+        cpf: cpfOf(0),
         voto: 'SIM',
     }), { ...JSON_HEADERS, responseCallback: http.expectedStatuses(409), tags: { name: 'duplicate_vote' } });
     check(duplicate, { 'duplicate vote rejected (409)': (r) => r.status === 409 });
