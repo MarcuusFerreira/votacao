@@ -162,18 +162,18 @@ docker compose exec postgres psql -U myuser -d mydatabase \
   concorrentes acima do tamanho do pool, as requisições esgotavam o pool
   (encontrado pelo teste de carga com k6, coberto por teste de
   integração).
-- **Pool de conexões com 20 conexões** (`spring.datasource.hikari.maximum-pool-size`),
-  dimensionado com o k6 (100 mil votos, 200 VUs, máquina de 8 CPUs):
+- **Pool de conexões com 40 conexões** (`spring.datasource.hikari.maximum-pool-size`),
+  dimensionado com o k6 (100 mil votos, 200 VUs, máquina de 8 CPUs). Com o
+  voto feito em um único `INSERT`, o limite passa a ser a latência de commit
+  por conexão (a aplicação usa ~1,7 CPU), então mais conexões em paralelo
+  aumentam a vazão até o ganho virar ruído:
 
-  | Pool | Tempo | Latência média | p95 |
-  |---|---|---|---|
-  | 10 (padrão) | 47,8 s | 95 ms | 202 ms |
-  | **20** | **32,7 s** | **65 ms** | **169 ms** |
-  | 50 | 30,2 s | 60 ms | 223 ms |
+  | Pool | Tempo (média de 2 execuções) |
+  |---|---|
+  | 20 | 24,4 s |
+  | **40** | **17,3 s** |
+  | 60 | 16,4 s (dentro da variação entre execuções) |
 
-  Dobrar o pool reduziu o tempo em ~32%; acima de 20 o ganho é marginal
-  (~8% com 2,5× as conexões) e o p95 piora, pois a aplicação já está
-  limitada por CPU. Pode ser sobrescrito com
-  `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE`.
+  Pode ser sobrescrito com `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE`.
 - **Erros via `ProblemDetail`** (RFC 7807): dispensa um DTO de erro
   próprio e já é suportado nativamente pelo Spring.
