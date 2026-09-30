@@ -162,6 +162,23 @@ docker compose exec postgres psql -U myuser -d mydatabase \
   concorrentes acima do tamanho do pool, as requisições esgotavam o pool
   (encontrado pelo teste de carga com k6, coberto por teste de
   integração).
+- **Caminho do voto otimizado com base em medição** (k6, 100 mil votos,
+  200 VUs, média das execuções):
+
+  | Etapa | Tempo | p95 |
+  |---|---|---|
+  | Antes (sessão via JPA + insert, pool 20) | 24,4 s | ~110 ms |
+  | Voto em um único `INSERT ... SELECT` condicional | 24,3 s | ~100 ms |
+  | Índice redundante em `votes(session_id)` removido | 24,5 s | ~100 ms |
+  | Pool redimensionado para 40 | 17,3 s | ~95 ms |
+  | Log por voto em `DEBUG` | 17,3 s | ~90 ms |
+  | Virtual threads (`spring.threads.virtual.enabled`) | **12,9 s** | **~45 ms** |
+
+  O `INSERT` condicional sozinho não reduziu o tempo, mas derrubou o uso de
+  CPU da aplicação de ~4 para ~1,7 núcleo — o que moveu o gargalo para a
+  latência de commit por conexão e permitiu o ganho com o pool maior. A
+  apuração segue usando o índice da constraint única (~21 ms para 100 mil
+  votos numa tabela de 2,8 milhões).
 - **Pool de conexões com 40 conexões** (`spring.datasource.hikari.maximum-pool-size`),
   dimensionado com o k6 (100 mil votos, 200 VUs, máquina de 8 CPUs). Com o
   voto feito em um único `INSERT`, o limite passa a ser a latência de commit
