@@ -50,7 +50,7 @@ class VoteServiceLoggingTest {
         appender.start();
         logger.addAppender(appender);
         service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient,
-            new VotingProperties(new VotingProperties.Session(Duration.ofSeconds(60)),
+            new VotingProperties("http://localhost:8080", new VotingProperties.Session(Duration.ofSeconds(60)),
                 new VotingProperties.Member("http://example.com", false)));
     }
 
@@ -89,7 +89,7 @@ class VoteServiceLoggingTest {
     @Test
     void rejectedVoteLogDoesNotExposeTheCpf() {
         VoteService verifying = new VoteService(voteRepository, votingSessionService, memberEligibilityClient,
-            new VotingProperties(new VotingProperties.Session(Duration.ofSeconds(60)),
+            new VotingProperties("http://localhost:8080", new VotingProperties.Session(Duration.ofSeconds(60)),
                 new VotingProperties.Member("http://example.com", true)));
         doThrow(new MemberNotEligibleException("12345678900")).when(memberEligibilityClient).checkEligibility("12345678900");
 

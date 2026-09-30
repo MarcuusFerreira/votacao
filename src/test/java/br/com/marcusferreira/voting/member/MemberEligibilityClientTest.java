@@ -22,7 +22,7 @@ import org.springframework.web.client.RestClient;
 class MemberEligibilityClientTest {
 
     private VotingProperties properties(String baseUrl) {
-        return new VotingProperties(
+        return new VotingProperties("http://localhost:8080", 
             new VotingProperties.Session(Duration.ofSeconds(60)),
             new VotingProperties.Member(baseUrl, true));
     }

@@ -6,6 +6,7 @@ import br.com.marcusferreira.voting.screen.FormItem;
 import br.com.marcusferreira.voting.screen.FormScreen;
 import br.com.marcusferreira.voting.screen.Screen;
 import br.com.marcusferreira.voting.screen.ScreenButton;
+import br.com.marcusferreira.voting.screen.ScreenUrls;
 import br.com.marcusferreira.voting.screen.SelectionItem;
 import br.com.marcusferreira.voting.screen.SelectionScreen;
 import br.com.marcusferreira.voting.session.VotingSession;
@@ -33,16 +34,18 @@ public class AgendaController {
 
     private final AgendaService agendaService;
     private final VotingSessionService votingSessionService;
+    private final ScreenUrls urls;
 
-    public AgendaController(AgendaService agendaService, VotingSessionService votingSessionService) {
+    public AgendaController(AgendaService agendaService, VotingSessionService votingSessionService, ScreenUrls urls) {
         this.agendaService = agendaService;
         this.votingSessionService = votingSessionService;
+        this.urls = urls;
     }
 
     @PostMapping
     public ResponseEntity<AgendaResponse> create(@Valid @RequestBody CreateAgendaRequest request) {
         Agenda agenda = agendaService.create(request.title(), request.description());
-        return ResponseEntity.created(URI.create("/api/v1/pautas/" + agenda.getId()))
+        return ResponseEntity.created(URI.create(urls.agenda(agenda.getId())))
             .body(AgendaResponse.from(agenda));
     }
 
@@ -53,9 +56,9 @@ public class AgendaController {
             @Max(value = 100, message = "tamanho deve ser no máximo 100") int size) {
         Page<Agenda> agendas = agendaService.findPage(page, size);
         List<SelectionItem> items = new ArrayList<>();
-        agendas.forEach(agenda -> items.add(new SelectionItem(agenda.getTitle(), "/api/v1/pautas/" + agenda.getId())));
+        agendas.forEach(agenda -> items.add(new SelectionItem(agenda.getTitle(), urls.agenda(agenda.getId()))));
         if (agendas.hasNext()) {
-            items.add(new SelectionItem("Próxima página", "/api/v1/pautas?pagina=" + (page + 1) + "&tamanho=" + size));
+            items.add(new SelectionItem("Próxima página", urls.agendasPage(page + 1, size)));
         }
         return new SelectionScreen("Pautas", items);
     }
@@ -69,13 +72,13 @@ public class AgendaController {
             return new FormScreen(
                 agenda.getTitle(),
                 List.of(FormItem.text(agenda.getDescription() != null ? agenda.getDescription() : "")),
-                new ScreenButton("Abrir sessão", "/api/v1/pautas/" + id + "/sessoes", null),
+                new ScreenButton("Abrir sessão", urls.openSession(id), null),
                 null);
         }
 
         VotingSession session = currentSession.get();
         if (votingSessionService.isOpen(session)) {
-            String voteUrl = "/api/v1/pautas/" + id + "/votos";
+            String voteUrl = urls.votes(id);
             return new SelectionScreen(agenda.getTitle(), List.of(
                 new SelectionItem("Sim", voteUrl, Map.of("voto", "SIM")),
                 new SelectionItem("Não", voteUrl, Map.of("voto", "NAO"))
@@ -85,7 +88,7 @@ public class AgendaController {
         return new FormScreen(
             agenda.getTitle(),
             List.of(FormItem.text("Sessão encerrada. Consulte o resultado.")),
-            new ScreenButton("Ver resultado", "/api/v1/pautas/" + id + "/resultado", null),
+            new ScreenButton("Ver resultado", urls.result(id), null),
             null);
     }
 }

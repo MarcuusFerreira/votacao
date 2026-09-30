@@ -24,6 +24,9 @@ spring:
       read-timeout: 5s
 
 voting:
+  # Base of the absolute callback URLs embedded in screens (emulator: http://10.0.2.2:8080,
+  # physical device: http://<host-ip>:8080, deployed: https://<domain>).
+  public-base-url: http://localhost:8080
   session:
     default-duration: 60s
   member:

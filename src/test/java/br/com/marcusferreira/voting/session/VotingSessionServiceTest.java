@@ -35,7 +35,7 @@ class VotingSessionServiceTest {
     AgendaService agendaService;
 
     private static VotingProperties properties() {
-        return new VotingProperties(
+        return new VotingProperties("http://localhost:8080", 
             new VotingProperties.Session(Duration.ofSeconds(60)),
             new VotingProperties.Member("http://example.com", false));
     }

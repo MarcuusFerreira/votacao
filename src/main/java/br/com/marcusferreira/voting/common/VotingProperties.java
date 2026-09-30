@@ -4,7 +4,7 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "voting")
-public record VotingProperties(Session session, Member member) {
+public record VotingProperties(String publicBaseUrl, Session session, Member member) {
 
     public record Session(Duration defaultDuration) {}
 
