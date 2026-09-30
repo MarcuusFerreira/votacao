@@ -25,7 +25,7 @@ public class VotingResultController {
 
     @GetMapping
     public FormScreen result(@PathVariable Long agendaId) {
-        VotingSession session = votingSessionService.findCurrentSession(agendaId)
+        VotingSession session = votingSessionService.findSession(agendaId)
             .orElseThrow(() -> new SessionNotFoundException(agendaId));
 
         if (votingSessionService.isOpen(session)) {

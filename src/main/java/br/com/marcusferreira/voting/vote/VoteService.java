@@ -48,7 +48,7 @@ public class VoteService {
     }
 
     public VotingResult tally(Long agendaId) {
-        VotingSession session = votingSessionService.findCurrentSession(agendaId)
+        VotingSession session = votingSessionService.findSession(agendaId)
             .orElseThrow(() -> new SessionNotFoundException(agendaId));
         VotingResult result = voteRepository.count(session.getId());
         log.info("Votes tallied: agendaId={} sessionId={} yes={} no={}",

@@ -45,7 +45,7 @@ class VotingSessionServiceTest {
         VotingSessionService service = new VotingSessionService(repository, agendaService, properties(), CLOCK);
 
         when(agendaService.findById(1L)).thenReturn(new Agenda("Pauta", null, NOW));
-        when(repository.findFirstByAgendaIdOrderByIdDesc(1L)).thenReturn(Optional.empty());
+        when(repository.findByAgendaId(1L)).thenReturn(Optional.empty());
         when(repository.save(any(VotingSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
         VotingSession session = service.open(1L, null);
@@ -59,7 +59,7 @@ class VotingSessionServiceTest {
 
         when(agendaService.findById(1L)).thenReturn(new Agenda("Pauta", null, NOW));
         VotingSession open = new VotingSession(1L, NOW, Duration.ofSeconds(60));
-        when(repository.findFirstByAgendaIdOrderByIdDesc(1L)).thenReturn(Optional.of(open));
+        when(repository.findByAgendaId(1L)).thenReturn(Optional.of(open));
 
         assertThatThrownBy(() -> service.open(1L, null))
             .isInstanceOf(SessionAlreadyOpenException.class);
@@ -71,7 +71,7 @@ class VotingSessionServiceTest {
 
         when(agendaService.findById(1L)).thenReturn(new Agenda("Pauta", null, NOW));
         VotingSession closed = new VotingSession(1L, NOW.minusSeconds(120), Duration.ofSeconds(60));
-        when(repository.findFirstByAgendaIdOrderByIdDesc(1L)).thenReturn(Optional.of(closed));
+        when(repository.findByAgendaId(1L)).thenReturn(Optional.of(closed));
         DataIntegrityViolationException violation = violationOf("uk_voting_sessions_agenda");
         when(repository.save(any(VotingSession.class))).thenThrow(violation);
 
@@ -85,7 +85,7 @@ class VotingSessionServiceTest {
         VotingSessionService service = new VotingSessionService(repository, agendaService, properties(), CLOCK);
 
         when(agendaService.findById(1L)).thenReturn(new Agenda("Pauta", null, NOW));
-        when(repository.findFirstByAgendaIdOrderByIdDesc(1L)).thenReturn(Optional.empty());
+        when(repository.findByAgendaId(1L)).thenReturn(Optional.empty());
         DataIntegrityViolationException violation = violationOf("voting_sessions_agenda_id_fkey");
         when(repository.save(any(VotingSession.class))).thenThrow(violation);
 

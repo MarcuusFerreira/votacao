@@ -52,7 +52,7 @@ public class AgendaController {
     @GetMapping("/{id}")
     public Screen detail(@PathVariable Long id) {
         Agenda agenda = agendaService.findById(id);
-        var currentSession = votingSessionService.findCurrentSession(id);
+        var currentSession = votingSessionService.findSession(id);
 
         if (currentSession.isEmpty()) {
             return new FormScreen(

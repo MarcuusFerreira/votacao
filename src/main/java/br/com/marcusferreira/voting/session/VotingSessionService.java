@@ -33,7 +33,7 @@ public class VotingSessionService {
 
     public VotingSession open(Long agendaId, Duration requestedDuration) {
         agendaService.findById(agendaId);
-        findCurrentSession(agendaId)
+        findSession(agendaId)
             .filter(this::isOpen)
             .ifPresent(session -> {
                 throw new SessionAlreadyOpenException(agendaId);
@@ -68,12 +68,12 @@ public class VotingSessionService {
         return session.isOpen(clock.instant());
     }
 
-    public Optional<VotingSession> findCurrentSession(Long agendaId) {
-        return repository.findFirstByAgendaIdOrderByIdDesc(agendaId);
+    public Optional<VotingSession> findSession(Long agendaId) {
+        return repository.findByAgendaId(agendaId);
     }
 
     public VotingSession getOpenSessionOrThrow(Long agendaId) {
-        VotingSession session = findCurrentSession(agendaId)
+        VotingSession session = findSession(agendaId)
             .orElseThrow(() -> new SessionNotFoundException(agendaId));
         if (!isOpen(session)) {
             throw new SessionClosedException(agendaId);
