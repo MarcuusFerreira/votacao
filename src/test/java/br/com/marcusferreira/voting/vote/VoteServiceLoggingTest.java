@@ -2,9 +2,11 @@ package br.com.marcusferreira.voting.vote;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import br.com.marcusferreira.voting.common.VotingProperties;
+import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import br.com.marcusferreira.voting.member.MemberEligibilityClient;
 import br.com.marcusferreira.voting.session.VotingSessionService;
@@ -82,5 +84,20 @@ class VoteServiceLoggingTest {
             .filteredOn(event -> event.getFormattedMessage().contains("Vote rejected"))
             .extracting(ILoggingEvent::getLevel)
             .containsExactly(Level.WARN);
+    }
+
+    @Test
+    void rejectedVoteLogDoesNotExposeTheCpf() {
+        VoteService verifying = new VoteService(voteRepository, votingSessionService, memberEligibilityClient,
+            new VotingProperties(new VotingProperties.Session(Duration.ofSeconds(60)),
+                new VotingProperties.Member("http://example.com", true)));
+        doThrow(new MemberNotEligibleException("12345678900")).when(memberEligibilityClient).checkEligibility("12345678900");
+
+        assertThatThrownBy(() -> verifying.cast(1L, "associado-1", "12345678900", VoteOption.YES))
+            .isInstanceOf(MemberNotEligibleException.class);
+
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+            .isNotEmpty()
+            .noneMatch(message -> message.contains("12345678900"));
     }
 }
