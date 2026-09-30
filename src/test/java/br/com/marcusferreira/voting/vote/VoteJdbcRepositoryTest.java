@@ -9,13 +9,19 @@ import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired
     VoteJdbcRepository voteRepository;
+
+    @Autowired
+    NamedParameterJdbcTemplate jdbcTemplate;
 
     @Autowired
     AgendaService agendaService;
@@ -27,6 +33,16 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         Long agendaId = agendaService.create("Pauta para voto", null).getId();
         VotingSession session = votingSessionService.open(agendaId, Duration.ofSeconds(60));
         return session.getId();
+    }
+
+    @Test
+    void votesTableHasNoIndexRedundantWithTheUniqueConstraint() {
+        // (session_id, member_id) already serves lookups by session_id; a separate index on
+        // session_id would only add write cost to every vote.
+        List<String> indexes = jdbcTemplate.queryForList(
+            "SELECT indexname FROM pg_indexes WHERE tablename = 'votes'", Map.of(), String.class);
+
+        assertThat(indexes).containsExactlyInAnyOrder("votes_pkey", "uk_votes_session_member");
     }
 
     @Test
