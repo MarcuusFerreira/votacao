@@ -89,6 +89,29 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void resultAfterSessionClosesShowsCount() {
+        Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest("Pauta com resultado", null), AgendaResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            new OpenSessionRequest(1L), VotingSessionResponse.class);
+        restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("associado-r1", "12345678900", VoteOption.YES), VoteResponse.class);
+
+        try {
+            Thread.sleep(1500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        ResponseEntity<String> response = restTemplate.getForEntity(
+            "/api/v1/pautas/" + agendaId + "/resultado", String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("Sim: 1").contains("Vencedor: SIM");
+    }
+
+    @Test
     void memberIdLongerThan64CharactersReturns400() {
         Long agendaId = agendaWithOpenSession("Pauta associadoId longo");
 
