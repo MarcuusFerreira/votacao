@@ -1,6 +1,5 @@
 package br.com.marcusferreira.voting.vote;
 
-import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import br.com.marcusferreira.voting.screen.FormScreen;
 import br.com.marcusferreira.voting.screen.VotingScreens;
 import br.com.marcusferreira.voting.session.VotingSession;
@@ -30,8 +29,7 @@ public class VotingResultController {
     @Operation(summary = "Resultado da votação", description = "Contagem e vencedor após o encerramento; enquanto a sessão está aberta, informa até quando.")
     @RequestMapping(method = {RequestMethod.GET, RequestMethod.POST})
     public FormScreen result(@PathVariable Long agendaId) {
-        VotingSession session = votingSessionService.findSession(agendaId)
-            .orElseThrow(() -> new SessionNotFoundException(agendaId));
+        VotingSession session = votingSessionService.getSessionOrThrow(agendaId);
         if (votingSessionService.isOpen(session)) {
             return screens.resultInProgress(agendaId, session.getClosesAt());
         }

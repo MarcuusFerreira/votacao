@@ -2,7 +2,6 @@ package br.com.marcusferreira.voting.vote;
 
 import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
-import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import br.com.marcusferreira.voting.member.MemberEligibilityClient;
 import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
@@ -48,8 +47,7 @@ public class VoteService {
     }
 
     public VotingResult tally(Long agendaId) {
-        VotingSession session = votingSessionService.findSession(agendaId)
-            .orElseThrow(() -> new SessionNotFoundException(agendaId));
+        VotingSession session = votingSessionService.getSessionOrThrow(agendaId);
         VotingResult result = voteRepository.count(session.getId());
         log.info("Votes tallied: agendaId={} sessionId={} yes={} no={}",
             agendaId, session.getId(), result.yesVotes(), result.noVotes());

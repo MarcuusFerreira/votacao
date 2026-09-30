@@ -72,9 +72,18 @@ public class VotingSessionService {
         return repository.findByAgendaId(agendaId);
     }
 
+    /**
+     * The agenda's session; a missing agenda is reported as such rather than as a missing session.
+     */
+    public VotingSession getSessionOrThrow(Long agendaId) {
+        return findSession(agendaId).orElseThrow(() -> {
+            agendaService.findById(agendaId);
+            return new SessionNotFoundException(agendaId);
+        });
+    }
+
     public VotingSession getOpenSessionOrThrow(Long agendaId) {
-        VotingSession session = findSession(agendaId)
-            .orElseThrow(() -> new SessionNotFoundException(agendaId));
+        VotingSession session = getSessionOrThrow(agendaId);
         if (!isOpen(session)) {
             throw new SessionClosedException(agendaId);
         }

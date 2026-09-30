@@ -147,6 +147,21 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void unknownAgendaIsReportedAsAgendaNotFound() {
+        long unknown = 987_654_321L;
+
+        ResponseEntity<String> vote = castVote(unknown, "associado-x", "12345678900", "SIM");
+        ResponseEntity<String> form = restTemplate.postForEntity(
+            "/api/v1/pautas/" + unknown + "/votos/formulario", json("{\"voto\":\"SIM\"}"), String.class);
+        ResponseEntity<String> result = restTemplate.getForEntity("/api/v1/pautas/" + unknown + "/resultado", String.class);
+
+        for (ResponseEntity<String> response : List.of(vote, form, result)) {
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(JsonPath.<String>read(response.getBody(), "$.detail")).isEqualTo("Pauta não encontrada: " + unknown);
+        }
+    }
+
+    @Test
     void votingWithoutSessionReturns404() {
         Long agendaId = createAgenda("Pauta sem sessão para voto");
 
