@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: votos
+  http:
+    clients:
+      # Timeouts applied to the auto-configured RestClient.Builder (used by MemberEligibilityClient),
+      # so a slow/hung external service cannot hold request threads indefinitely.
+      connect-timeout: 3s
+      read-timeout: 5s
+
+voting:
+  session:
+    default-duration: 60s
+  member:
+    base-url: https://user-info.herokuapp.com
+    # Bonus 1 disabled by default: the challenge's demo service was discontinued by Heroku.
+    verification-enabled: false
