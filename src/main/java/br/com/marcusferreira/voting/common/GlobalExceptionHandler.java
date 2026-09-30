@@ -4,6 +4,7 @@ import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.common.exception.InvalidCpfException;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
+import br.com.marcusferreira.voting.common.exception.MemberVerificationUnavailableException;
 import br.com.marcusferreira.voting.common.exception.SessionAlreadyOpenException;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
@@ -66,6 +67,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(MemberNotEligibleException.class)
     public ProblemDetail handleMemberNotEligible(MemberNotEligibleException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(MemberVerificationUnavailableException.class)
+    public ProblemDetail handleMemberVerificationUnavailable(MemberVerificationUnavailableException ex) {
+        // Only the error type: the cause's message contains the request URL, which carries the CPF.
+        log.warn("CPF verification service unavailable: {}",
+            ex.getCause() != null ? ex.getCause().getClass().getSimpleName() : "unknown");
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

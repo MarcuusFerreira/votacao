@@ -12,6 +12,7 @@ import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.common.exception.InvalidCpfException;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
+import br.com.marcusferreira.voting.common.exception.MemberVerificationUnavailableException;
 import br.com.marcusferreira.voting.common.exception.SessionAlreadyOpenException;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
@@ -58,6 +59,9 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/member-not-eligible")
         void memberNotEligible() { throw new MemberNotEligibleException("11111111111"); }
+
+        @GetMapping("/test/verification-unavailable")
+        void verificationUnavailable() { throw new MemberVerificationUnavailableException(new RuntimeException("timeout")); }
 
         @GetMapping("/test/agendas/{id}")
         Long agenda(@PathVariable Long id) { return id; }
@@ -164,5 +168,12 @@ class GlobalExceptionHandlerTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.detail").value("Erro interno inesperado"))
             .andExpect(content().string(not(containsString("sensível"))));
+    }
+
+    @Test
+    void verificationUnavailableReturns503() throws Exception {
+        mockMvc.perform(get("/test/verification-unavailable"))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.detail").value("Serviço de verificação de CPF indisponível. Tente novamente em instantes."));
     }
 }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import br.com.marcusferreira.voting.AbstractIntegrationTest;
+import br.com.marcusferreira.voting.common.exception.MemberVerificationUnavailableException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
@@ -54,6 +55,7 @@ class MemberEligibilityClientTimeoutIntegrationTest extends AbstractIntegrationT
     void unresponsiveUpstreamFailsWithReadTimeout() {
         assertTimeoutPreemptively(Duration.ofSeconds(4), () ->
             assertThatThrownBy(() -> client.checkEligibility("12345678900"))
-                .isInstanceOf(ResourceAccessException.class));
+                .isInstanceOf(MemberVerificationUnavailableException.class)
+                .hasCauseInstanceOf(ResourceAccessException.class));
     }
 }

@@ -9,8 +9,11 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.common.exception.InvalidCpfException;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
+import br.com.marcusferreira.voting.common.exception.MemberVerificationUnavailableException;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -60,5 +63,18 @@ class MemberEligibilityClientTest {
 
         assertThatThrownBy(() -> client.checkEligibility("00000000000"))
             .isInstanceOf(InvalidCpfException.class);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = HttpStatus.class, names = {"INTERNAL_SERVER_ERROR", "SERVICE_UNAVAILABLE", "TOO_MANY_REQUESTS", "BAD_REQUEST"})
+    void unexpectedStatusFromServiceMeansVerificationUnavailable(HttpStatus status) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        MemberEligibilityClient client = new MemberEligibilityClient(builder, properties("http://user-info.test"));
+
+        server.expect(requestTo("http://user-info.test/users/12345678900")).andRespond(withStatus(status));
+
+        assertThatThrownBy(() -> client.checkEligibility("12345678900"))
+            .isInstanceOf(MemberVerificationUnavailableException.class);
     }
 }
