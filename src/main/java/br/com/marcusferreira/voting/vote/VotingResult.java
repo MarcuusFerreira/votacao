@@ -16,6 +16,10 @@ public record VotingResult(long yesVotes, long noVotes) {
         }
     }
 
+    public boolean hasVotes() {
+        return yesVotes + noVotes > 0;
+    }
+
     public Winner winner() {
         if (yesVotes == noVotes) {
             return Winner.TIE;

@@ -35,8 +35,9 @@ public class VotingResultController {
         }
 
         VotingResult result = voteService.tally(agendaId);
-        String text = "Sim: %d / Não: %d — Vencedor: %s"
-            .formatted(result.yesVotes(), result.noVotes(), result.winner().label());
+        String text = result.hasVotes()
+            ? "Sim: %d / Não: %d — Vencedor: %s".formatted(result.yesVotes(), result.noVotes(), result.winner().label())
+            : "Sim: 0 / Não: 0 — Nenhum voto registrado";
         return new FormScreen("Resultado", List.of(FormItem.text(text)), null, null);
     }
 }

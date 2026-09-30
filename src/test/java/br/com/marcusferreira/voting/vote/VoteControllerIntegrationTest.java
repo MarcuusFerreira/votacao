@@ -177,6 +177,17 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void resultWithoutVotesSaysNoVotesWereCast() {
+        Long agendaId = agendaWithOpenSession("Pauta sem votos");
+        clock.advance(Duration.ofSeconds(121));
+
+        ResponseEntity<String> response = restTemplate.getForEntity(
+            "/api/v1/pautas/" + agendaId + "/resultado", String.class);
+
+        assertThat(response.getBody()).contains("Nenhum voto registrado").doesNotContain("EMPATE");
+    }
+
+    @Test
     void memberIdLongerThan64CharactersReturns400() {
         Long agendaId = agendaWithOpenSession("Pauta associadoId longo");
 
