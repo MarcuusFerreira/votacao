@@ -40,7 +40,7 @@ public class VoteService {
                 votingSessionService.getOpenSessionOrThrow(agendaId);
                 throw new SessionClosedException(agendaId);
             }
-            log.info("Vote registered: agendaId={} memberId={} vote={}", agendaId, memberId, vote);
+            log.debug("Vote registered: agendaId={} memberId={} vote={}", agendaId, memberId, vote);
         } catch (RuntimeException e) {
             log.warn("Vote rejected: agendaId={} memberId={} reason={}", agendaId, memberId, e.getMessage());
             throw e;
