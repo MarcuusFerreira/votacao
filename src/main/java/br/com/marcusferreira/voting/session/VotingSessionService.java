@@ -7,11 +7,14 @@ import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import java.time.Duration;
 import java.util.Optional;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
 public class VotingSessionService {
+
+    private static final String SINGLE_SESSION_CONSTRAINT = "uk_voting_sessions_agenda";
 
     private final VotingSessionRepository repository;
     private final AgendaService agendaService;
@@ -40,10 +43,22 @@ public class VotingSessionService {
             // cases the in-memory check above cannot detect.
             session = repository.save(new VotingSession(agendaId, duration));
         } catch (DataIntegrityViolationException e) {
-            throw new SessionAlreadyOpenException(agendaId, e);
+            if (violates(e, SINGLE_SESSION_CONSTRAINT)) {
+                throw new SessionAlreadyOpenException(agendaId, e);
+            }
+            throw e;
         }
         log.info("Voting session opened: agendaId={} sessionId={} closesAt={}", agendaId, session.getId(), session.getClosesAt());
         return session;
+    }
+
+    private static boolean violates(DataIntegrityViolationException e, String constraint) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation) {
+                return constraint.equalsIgnoreCase(violation.getConstraintName());
+            }
+        }
+        return false;
     }
 
     public Optional<VotingSession> findCurrentSession(Long agendaId) {

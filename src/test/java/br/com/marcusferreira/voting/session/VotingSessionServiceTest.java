@@ -9,9 +9,11 @@ import br.com.marcusferreira.voting.agenda.Agenda;
 import br.com.marcusferreira.voting.agenda.AgendaService;
 import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.common.exception.SessionAlreadyOpenException;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -65,11 +67,28 @@ class VotingSessionServiceTest {
         when(agendaService.findById(1L)).thenReturn(new Agenda("Pauta", null));
         VotingSession closed = new VotingSession(1L, Duration.ofSeconds(-1));
         when(repository.findFirstByAgendaIdOrderByIdDesc(1L)).thenReturn(Optional.of(closed));
-        DataIntegrityViolationException violation = new DataIntegrityViolationException("uk_voting_sessions_agenda");
+        DataIntegrityViolationException violation = violationOf("uk_voting_sessions_agenda");
         when(repository.save(any(VotingSession.class))).thenThrow(violation);
 
         assertThatThrownBy(() -> service.open(1L, null))
             .isInstanceOf(SessionAlreadyOpenException.class)
             .hasCause(violation);
+    }
+
+    @Test
+    void openRethrowsIntegrityViolationsOtherThanTheSingleSessionConstraint() {
+        VotingSessionService service = new VotingSessionService(repository, agendaService, properties());
+
+        when(agendaService.findById(1L)).thenReturn(new Agenda("Pauta", null));
+        when(repository.findFirstByAgendaIdOrderByIdDesc(1L)).thenReturn(Optional.empty());
+        DataIntegrityViolationException violation = violationOf("voting_sessions_agenda_id_fkey");
+        when(repository.save(any(VotingSession.class))).thenThrow(violation);
+
+        assertThatThrownBy(() -> service.open(1L, null)).isSameAs(violation);
+    }
+
+    private static DataIntegrityViolationException violationOf(String constraint) {
+        return new DataIntegrityViolationException("could not execute statement",
+            new ConstraintViolationException("violation", new SQLException("violation"), constraint));
     }
 }

@@ -2,6 +2,7 @@ package br.com.marcusferreira.voting.session;
 
 import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
 import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
+import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ public class VotingSessionController {
 
     @PostMapping
     public ResponseEntity<VotingSessionResponse> open(@PathVariable Long agendaId,
-                                                      @RequestBody(required = false) OpenSessionRequest request) {
+                                                      @Valid @RequestBody(required = false) OpenSessionRequest request) {
         Duration duration = (request != null && request.durationSeconds() != null)
             ? Duration.ofSeconds(request.durationSeconds())
             : null;

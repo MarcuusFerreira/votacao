@@ -8,15 +8,26 @@ import br.com.marcusferreira.voting.agenda.dto.CreateAgendaRequest;
 import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
 import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 class VotingSessionControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     TestRestTemplate restTemplate;
+
+    private static HttpEntity<String> json(String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return new HttpEntity<>(body, headers);
+    }
 
     @Test
     void openSessionReturns201WithClosesAtInTheFuture() {
@@ -44,6 +55,22 @@ class VotingSessionControllerIntegrationTest extends AbstractIntegrationTest {
             .contains("\"pautaId\":" + agendaId)
             .contains("\"abertaEm\"")
             .contains("\"fechaEm\"");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-100", "86401", "10000000000000", "9223372036854775807"})
+    void openSessionWithOutOfRangeDurationReturns400AndKeepsAgendaUsable(String duration) {
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest("Pauta com duração inválida " + duration, null), AgendaResponse.class).getBody().id();
+
+        ResponseEntity<String> rejected = restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            json("{\"duracaoSegundos\":" + duration + "}"), String.class);
+        ResponseEntity<String> retry = restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            json("{\"duracaoSegundos\":60}"), String.class);
+
+        assertThat(rejected.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(rejected.getBody()).contains("\"duracaoSegundos\"");
+        assertThat(retry.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
     @Test
