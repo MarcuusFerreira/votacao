@@ -1,6 +1,11 @@
 spring:
   application:
     name: votos
+  datasource:
+    hikari:
+      # Sized by load test (k6, 100k votes, 200 VUs, 8 CPUs): 10 -> 20 connections cut the run
+      # from 47.8s to 32.7s; 50 only reached 30.2s with a worse p95, as the app is CPU-bound by then.
+      maximum-pool-size: 20
   jpa:
     # Open Session in View would keep the JPA connection for the whole request while the vote
     # insert (JDBC) takes a second one; under concurrent votes that starves the pool.
