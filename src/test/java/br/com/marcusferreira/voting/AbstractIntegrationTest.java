@@ -27,5 +27,8 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // Each distinct test context keeps its own pool open against the shared container
+        // (max_connections=100), so tests use Hikari's default size instead of the production one.
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> 10);
     }
 }
