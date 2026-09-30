@@ -1,6 +1,7 @@
 package br.com.marcusferreira.voting.vote;
 
 import br.com.marcusferreira.voting.common.VotingProperties;
+import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import br.com.marcusferreira.voting.member.MemberEligibilityClient;
 import br.com.marcusferreira.voting.session.VotingSession;
@@ -29,11 +30,16 @@ public class VoteService {
 
     public void cast(Long agendaId, String memberId, String cpf, VoteOption vote) {
         try {
-            VotingSession session = votingSessionService.getOpenSessionOrThrow(agendaId);
             if (properties.member().verificationEnabled()) {
+                // Checked first so a closed session does not cost a call to the external service.
+                votingSessionService.getOpenSessionOrThrow(agendaId);
                 memberEligibilityClient.checkEligibility(cpf);
             }
-            voteRepository.insert(session.getId(), memberId, vote);
+            if (!voteRepository.insertIntoOpenSession(agendaId, memberId, vote)) {
+                // Nothing inserted: find out whether the session is missing or closed.
+                votingSessionService.getOpenSessionOrThrow(agendaId);
+                throw new SessionClosedException(agendaId);
+            }
             log.info("Vote registered: agendaId={} memberId={} vote={}", agendaId, memberId, vote);
         } catch (RuntimeException e) {
             log.warn("Vote rejected: agendaId={} memberId={} reason={}", agendaId, memberId, e.getMessage());

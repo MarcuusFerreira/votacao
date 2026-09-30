@@ -150,6 +150,36 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void votingAfterSessionClosedReturns409() throws InterruptedException {
+        Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest("Pauta com sessão já encerrada", null), AgendaResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            new OpenSessionRequest(1L), VotingSessionResponse.class);
+        Thread.sleep(1500);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("associado-atrasado", "12345678900", VoteOption.YES),
+            String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void votingWithoutSessionReturns404() {
+        Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
+            new CreateAgendaRequest("Pauta sem sessão para voto", null), AgendaResponse.class).getBody().id();
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "/api/v1/pautas/" + agendaId + "/votos",
+            new CastVoteRequest("associado-sem-sessao", "12345678900", VoteOption.YES),
+            String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void memberIdLongerThan64CharactersReturns400() {
         Long agendaId = agendaWithOpenSession("Pauta associadoId longo");
 

@@ -45,6 +45,45 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void insertIntoOpenSessionInsertsWhenSessionIsOpen() {
+        Long agendaId = agendaService.create("Pauta com sessão aberta", null).getId();
+        Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(60)).getId();
+
+        boolean inserted = voteRepository.insertIntoOpenSession(agendaId, "associado-aberta", VoteOption.YES);
+
+        assertThat(inserted).isTrue();
+        assertThat(voteRepository.count(sessionId).yesVotes()).isEqualTo(1);
+    }
+
+    @Test
+    void insertIntoOpenSessionSkipsWhenSessionIsClosed() {
+        Long agendaId = agendaService.create("Pauta com sessão encerrada", null).getId();
+        Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(-1)).getId();
+
+        boolean inserted = voteRepository.insertIntoOpenSession(agendaId, "associado-fechada", VoteOption.YES);
+
+        assertThat(inserted).isFalse();
+        assertThat(voteRepository.count(sessionId).yesVotes()).isZero();
+    }
+
+    @Test
+    void insertIntoOpenSessionSkipsWhenAgendaHasNoSession() {
+        Long agendaId = agendaService.create("Pauta sem sessão", null).getId();
+
+        assertThat(voteRepository.insertIntoOpenSession(agendaId, "associado-sem-sessao", VoteOption.YES)).isFalse();
+    }
+
+    @Test
+    void insertIntoOpenSessionThrowsOnDuplicateVote() {
+        Long agendaId = agendaService.create("Pauta com voto duplicado", null).getId();
+        votingSessionService.open(agendaId, Duration.ofSeconds(60));
+        voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", VoteOption.YES);
+
+        assertThatThrownBy(() -> voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", VoteOption.NO))
+            .isInstanceOf(DuplicateVoteException.class);
+    }
+
+    @Test
     void insertingDuplicateVoteThrows() {
         Long sessionId = newSessionId();
         voteRepository.insert(sessionId, "associado-x", VoteOption.YES);
