@@ -7,7 +7,11 @@ import br.com.marcusferreira.voting.agenda.dto.AgendaResponse;
 import br.com.marcusferreira.voting.agenda.dto.CreateAgendaRequest;
 import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
 import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
+import com.jayway.jsonpath.JsonPath;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.HttpEntity;
@@ -71,6 +75,27 @@ class AgendaControllerIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("\"tipo\":\"SELECAO\"");
         assertThat(response.getBody()).contains("Pauta para listagem");
+    }
+
+    @Test
+    void listIsPaginatedNewestFirstWithNextPageItem() {
+        for (String title : List.of("Paginada A", "Paginada B", "Paginada C")) {
+            restTemplate.postForEntity("/api/v1/pautas", new CreateAgendaRequest(title, null), AgendaResponse.class);
+        }
+
+        String body = restTemplate.getForObject("/api/v1/pautas?pagina=0&tamanho=2", String.class);
+
+        assertThat(JsonPath.<List<String>>read(body, "$.itens[*].texto"))
+            .containsExactly("Paginada C", "Paginada B", "Próxima página");
+        assertThat(JsonPath.<String>read(body, "$.itens[2].url")).contains("pagina=1").contains("tamanho=2");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"pagina=-1", "tamanho=0", "tamanho=101"})
+    void listRejectsOutOfRangePagination(String query) {
+        ResponseEntity<String> response = restTemplate.getForEntity("/api/v1/pautas?" + query, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test

@@ -2,9 +2,11 @@ package br.com.marcusferreira.voting.agenda;
 
 import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
 import java.time.Clock;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,7 +33,7 @@ public class AgendaService {
             .orElseThrow(() -> new AgendaNotFoundException(id));
     }
 
-    public List<Agenda> findAll() {
-        return repository.findAll();
+    public Page<Agenda> findPage(int page, int size) {
+        return repository.findAll(PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id")));
     }
 }
