@@ -53,7 +53,7 @@ class GlobalExceptionHandlerTest {
         void sessionClosed() { throw new SessionClosedException(1L); }
 
         @GetMapping("/test/duplicate-vote")
-        void duplicateVote() { throw new DuplicateVoteException(1L, "abc"); }
+        void duplicateVote() { throw new DuplicateVoteException("abc"); }
 
         @GetMapping("/test/invalid-cpf")
         void invalidCpf() { throw new InvalidCpfException("11111111111"); }

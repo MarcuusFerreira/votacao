@@ -1,5 +1,6 @@
 package br.com.marcusferreira.voting.vote;
 
+import br.com.marcusferreira.voting.common.ConstraintViolations;
 import br.com.marcusferreira.voting.common.exception.CpfAlreadyUsedException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import java.sql.Timestamp;
@@ -45,16 +46,11 @@ public class VoteJdbcRepository {
         try {
             return jdbcTemplate.update(sql, params) == 1;
         } catch (DuplicateKeyException e) {
-            if (e.getMessage() != null && e.getMessage().contains(CPF_CONSTRAINT)) {
+            if (ConstraintViolations.violates(e, CPF_CONSTRAINT)) {
                 throw new CpfAlreadyUsedException(cpf, e);
             }
-            throw new DuplicateVoteException(sessionIdOf(agendaId), memberId, e);
+            throw new DuplicateVoteException(memberId, e);
         }
-    }
-
-    private Long sessionIdOf(Long agendaId) {
-        return jdbcTemplate.queryForObject("SELECT id FROM voting_sessions WHERE agenda_id = :agendaId",
-            new MapSqlParameterSource("agendaId", agendaId), Long.class);
     }
 
     public VotingResult count(Long sessionId) {

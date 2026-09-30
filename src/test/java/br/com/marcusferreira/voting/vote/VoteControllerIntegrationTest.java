@@ -78,7 +78,11 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
         Long agendaId = agendaWithOpenSession("Pauta voto duplicado");
         castVote(agendaId, "associado-2", "12345678900", "SIM");
 
-        assertThat(castVote(agendaId, "associado-2", "12345678900", "NAO").getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        // Another CPF, so only the (session, member) uniqueness is violated.
+        ResponseEntity<String> response = castVote(agendaId, "associado-2", "12345678901", "NAO");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(JsonPath.<String>read(response.getBody(), "$.detail")).isEqualTo("O associado associado-2 já votou nesta pauta");
     }
 
     @Test

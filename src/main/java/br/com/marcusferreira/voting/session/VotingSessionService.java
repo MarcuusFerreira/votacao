@@ -1,6 +1,7 @@
 package br.com.marcusferreira.voting.session;
 
 import br.com.marcusferreira.voting.agenda.AgendaService;
+import br.com.marcusferreira.voting.common.ConstraintViolations;
 import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.common.exception.SessionAlreadyOpenException;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
@@ -8,7 +9,6 @@ import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -46,22 +46,13 @@ public class VotingSessionService {
             // cases the in-memory check above cannot detect.
             session = repository.save(new VotingSession(agendaId, clock.instant(), duration));
         } catch (DataIntegrityViolationException e) {
-            if (violates(e, SINGLE_SESSION_CONSTRAINT)) {
+            if (ConstraintViolations.violates(e, SINGLE_SESSION_CONSTRAINT)) {
                 throw new SessionAlreadyOpenException(agendaId, e);
             }
             throw e;
         }
         log.info("Voting session opened: agendaId={} sessionId={} closesAt={}", agendaId, session.getId(), session.getClosesAt());
         return session;
-    }
-
-    private static boolean violates(DataIntegrityViolationException e, String constraint) {
-        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException violation) {
-                return constraint.equalsIgnoreCase(violation.getConstraintName());
-            }
-        }
-        return false;
     }
 
     public boolean isOpen(VotingSession session) {
