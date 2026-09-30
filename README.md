@@ -129,6 +129,43 @@ docker compose exec postgres psql -U myuser -d mydatabase \
   -c "SELECT s.agenda_id, v.vote, count(*) FROM votes v JOIN voting_sessions s ON s.id = v.session_id GROUP BY 1, 2 ORDER BY 1, 2"
 ```
 
+### Resultados medidos (ambiente local)
+
+> **Atenção:** números obtidos em uma única máquina de desenvolvimento, não
+> em ambiente de produção. Servem para comparar versões da aplicação entre
+> si e demonstrar correção sob carga — não como estimativa de capacidade em
+> produção.
+
+**Ambiente:** notebook com Intel Core i5-1135G7 (4 núcleos / 8 threads),
+16 GB de RAM, Fedora 43, Docker 29.8.1. Aplicação, Postgres e o próprio k6
+rodando em containers **na mesma máquina**, disputando a mesma CPU, sem
+limites de recursos por container. Verificação de CPF (bônus 1)
+**desabilitada** — com ela, cada voto dependeria da latência do serviço
+externo. Pool de 40 conexões e demais configurações padrão do repositório.
+
+| Votos | VUs | Tempo de envio | Vazão | Latência média | p95 | Erros |
+|---|---|---|---|---|---|---|
+| 100.000 | 200 | 12,3 s | ~8.100 votos/s | 24 ms | 41 ms | 0% |
+| 500.000 | 300 | 1 min 38 s | ~5.100 votos/s | 59 ms | 123 ms | 0% |
+| 1.000.000 | 200 | 2 min 03 s | ~8.150 votos/s | 24 ms | 41 ms | 0% |
+
+Em todas as execuções: todos os votos retornaram `201`, o voto repetido
+retornou `409` e a apuração bateu com o total enviado. A persistência foi
+conferida direto no Postgres — por exemplo, no teste de 1 milhão, 500.000
+`YES` + 500.000 `NO` de 1.000.000 de associados distintos, gravados entre o
+primeiro e o último segundo da carga.
+
+Observações:
+
+- A vazão é o total de votos dividido pelo tempo de envio (barra `votes`
+  do k6). A taxa `/s` do resumo final do k6 é menor porque inclui a espera
+  pelo encerramento da sessão antes da conferência da apuração.
+- Com 1 milhão de votos (tabela já com 4,4 milhões de linhas) vazão e p95
+  foram iguais aos de 100 mil: o volume acumulado não degradou o
+  desempenho. A queda no teste de 500 mil veio dos 300 VUs — acima de ~200,
+  as requisições extras só enfileiram no pool de conexões e disputam CPU.
+- Execuções repetidas variaram alguns segundos entre si nesta máquina.
+
 ## Principais decisões de arquitetura
 
 - **Persistência híbrida**: `Agenda`/`VotingSession` usam Spring Data JPA
