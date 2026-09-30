@@ -28,3 +28,12 @@ services:
     ports:
       - '8080:8080'
 
+  # Load test: `docker compose run --rm k6` (app must be up). Tune with -e VOTES=... -e VUS=...
+  k6:
+    image: 'grafana/k6:latest'
+    profiles: ['k6']
+    environment:
+      - 'BASE_URL=http://app:8080'
+    volumes:
+      - './k6:/scripts:ro'
+    command: ['run', '/scripts/vote-load.js']

@@ -100,6 +100,35 @@ JDBC e a agregação), não um ciclo completo de requisição pela API — que
 incluiria ainda o overhead HTTP/validação e, quando habilitada, a
 chamada externa de verificação de CPF a cada voto.
 
+## Teste de carga (k6)
+
+O script `k6/vote-load.js` exercita a API rodando em container e, por meio
+dela, o banco: cria uma pauta, abre uma sessão, dispara votos concorrentes
+de associados distintos, confirma que um voto repetido retorna 409 e, após
+o encerramento da sessão, confere que a apuração bate com o total de votos
+enviados. O k6 roda em container, sem instalação local:
+
+```bash
+docker compose --profile app up -d --build   # app + Postgres
+docker compose run --rm k6                   # 1000 votos, 50 VUs, sessão de 30s
+docker compose run --rm -e VOTES=10000 -e VUS=200 -e SESSION_SECONDS=60 k6
+```
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `VOTES` | `1000` | Total de votos enviados |
+| `VUS` | `50` | Usuários virtuais concorrentes |
+| `SESSION_SECONDS` | `30` | Duração da sessão; os votos precisam terminar antes dela fechar |
+| `BASE_URL` | `http://app:8080` (no compose) | Endereço da API |
+
+Com o k6 instalado localmente, `k6 run k6/vote-load.js` usa
+`http://localhost:8080`. Para conferir os votos direto no banco:
+
+```bash
+docker compose exec postgres psql -U myuser -d mydatabase \
+  -c "SELECT s.agenda_id, v.vote, count(*) FROM votes v JOIN voting_sessions s ON s.id = v.session_id GROUP BY 1, 2 ORDER BY 1, 2"
+```
+
 ## Principais decisões de arquitetura
 
 - **Persistência híbrida**: `Agenda`/`VotingSession` usam Spring Data JPA
