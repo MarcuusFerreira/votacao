@@ -156,5 +156,11 @@ docker compose exec postgres psql -U myuser -d mydatabase \
   e mensagens de erro seguem em português, conforme a especificação do
   desafio. Erros de validação também são reportados com o nome do campo
   JSON (ex.: `erros.associadoId`).
+- **Open Session in View desabilitado** (`spring.jpa.open-in-view:
+  false`): com ele ligado, cada voto segurava a conexão JPA da requisição
+  inteira enquanto o insert JDBC pedia uma segunda conexão — sob votos
+  concorrentes acima do tamanho do pool, as requisições esgotavam o pool
+  (encontrado pelo teste de carga com k6, coberto por teste de
+  integração).
 - **Erros via `ProblemDetail`** (RFC 7807): dispensa um DTO de erro
   próprio e já é suportado nativamente pelo Spring.

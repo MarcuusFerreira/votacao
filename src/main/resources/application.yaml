@@ -1,6 +1,10 @@
 spring:
   application:
     name: votos
+  jpa:
+    # Open Session in View would keep the JPA connection for the whole request while the vote
+    # insert (JDBC) takes a second one; under concurrent votes that starves the pool.
+    open-in-view: false
   http:
     clients:
       # Timeouts applied to the auto-configured RestClient.Builder (used by MemberEligibilityClient),

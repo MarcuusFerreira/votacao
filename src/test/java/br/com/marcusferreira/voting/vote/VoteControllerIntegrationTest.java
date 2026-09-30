@@ -10,6 +10,13 @@ import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
 import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
 import br.com.marcusferreira.voting.vote.dto.CastVoteRequest;
 import br.com.marcusferreira.voting.vote.dto.VoteResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +24,7 @@ import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.TestPropertySource;
@@ -109,6 +117,36 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("Sim: 1").contains("Vencedor: SIM");
+    }
+
+    @Test
+    void concurrentVotesBeyondConnectionPoolSizeAreAllAccepted() throws Exception {
+        Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
+        Long agendaId = agendaWithOpenSession("Pauta com votos concorrentes");
+
+        // More concurrent requests than the default pool size (10): each vote must hold at
+        // most one connection at a time, otherwise the requests starve the pool.
+        int members = 30;
+        ExecutorService executor = Executors.newFixedThreadPool(members);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<HttpStatusCode>> responses = new ArrayList<>();
+        for (int i = 0; i < members; i++) {
+            CastVoteRequest request = new CastVoteRequest("associado-concorrente-" + i, "12345678900", VoteOption.YES);
+            responses.add(executor.submit(() -> {
+                start.await();
+                return restTemplate.postForEntity(
+                    "/api/v1/pautas/" + agendaId + "/votos", request, String.class).getStatusCode();
+            }));
+        }
+
+        start.countDown();
+        try {
+            for (Future<HttpStatusCode> response : responses) {
+                assertThat(response.get(20, TimeUnit.SECONDS)).isEqualTo(HttpStatus.CREATED);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
