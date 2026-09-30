@@ -19,23 +19,6 @@ public class VoteJdbcRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void insert(Long sessionId, String memberId, VoteOption vote) {
-        String sql = """
-            INSERT INTO votes (session_id, member_id, vote, created_at)
-            VALUES (:sessionId, :memberId, :vote, :createdAt)
-            """;
-        MapSqlParameterSource params = new MapSqlParameterSource()
-            .addValue("sessionId", sessionId)
-            .addValue("memberId", memberId)
-            .addValue("vote", vote.name())
-            .addValue("createdAt", Timestamp.from(Instant.now()));
-        try {
-            jdbcTemplate.update(sql, params);
-        } catch (DuplicateKeyException e) {
-            throw new DuplicateVoteException(sessionId, memberId, e);
-        }
-    }
-
     /**
      * Records the vote in the agenda's session in a single statement, as long as the session is
      * still open. Returns {@code false} when nothing was inserted: the agenda has no session or

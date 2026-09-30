@@ -29,12 +29,6 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     VotingSessionService votingSessionService;
 
-    private Long newSessionId() {
-        Long agendaId = agendaService.create("Pauta para voto", null).getId();
-        VotingSession session = votingSessionService.open(agendaId, Duration.ofSeconds(60));
-        return session.getId();
-    }
-
     @Test
     void votesTableHasNoIndexRedundantWithTheUniqueConstraint() {
         // (session_id, member_id) already serves lookups by session_id; a separate index on
@@ -47,11 +41,12 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void insertAndCountAggregatesByOption() {
-        Long sessionId = newSessionId();
+        Long agendaId = agendaService.create("Pauta para voto", null).getId();
+        Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(60)).getId();
 
-        voteRepository.insert(sessionId, "associado-1", VoteOption.YES);
-        voteRepository.insert(sessionId, "associado-2", VoteOption.YES);
-        voteRepository.insert(sessionId, "associado-3", VoteOption.NO);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-1", VoteOption.YES);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-2", VoteOption.YES);
+        voteRepository.insertIntoOpenSession(agendaId, "associado-3", VoteOption.NO);
 
         VotingResult result = voteRepository.count(sessionId);
 
@@ -96,15 +91,6 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", VoteOption.YES);
 
         assertThatThrownBy(() -> voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", VoteOption.NO))
-            .isInstanceOf(DuplicateVoteException.class);
-    }
-
-    @Test
-    void insertingDuplicateVoteThrows() {
-        Long sessionId = newSessionId();
-        voteRepository.insert(sessionId, "associado-x", VoteOption.YES);
-
-        assertThatThrownBy(() -> voteRepository.insert(sessionId, "associado-x", VoteOption.NO))
             .isInstanceOf(DuplicateVoteException.class);
     }
 }
