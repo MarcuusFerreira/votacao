@@ -5,11 +5,14 @@ import br.com.marcusferreira.voting.screen.FormScreen;
 import br.com.marcusferreira.voting.screen.VotingScreens;
 import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Resultado")
 @RestController
 @RequestMapping("/api/v1/pautas/{agendaId}/resultado")
 public class VotingResultController {
@@ -24,6 +27,7 @@ public class VotingResultController {
         this.screens = screens;
     }
 
+    @Operation(summary = "Resultado da votação", description = "Contagem e vencedor após o encerramento; enquanto a sessão está aberta, informa até quando.")
     @RequestMapping(method = {RequestMethod.GET, RequestMethod.POST})
     public FormScreen result(@PathVariable Long agendaId) {
         VotingSession session = votingSessionService.findSession(agendaId)

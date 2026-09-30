@@ -4,6 +4,8 @@ import br.com.marcusferreira.voting.agenda.AgendaService;
 import br.com.marcusferreira.voting.screen.SelectionScreen;
 import br.com.marcusferreira.voting.screen.VotingScreens;
 import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Sessões de votação")
 @RestController
 @RequestMapping("/api/v1/pautas/{agendaId}/sessoes")
 public class VotingSessionController {
@@ -28,6 +31,7 @@ public class VotingSessionController {
         this.screens = screens;
     }
 
+    @Operation(summary = "Abre a sessão de votação da pauta", description = "duracaoSegundos entre 1 e 86400 (padrão: 60). Cada pauta admite uma única sessão. Responde 201 com a tela de votação.")
     @PostMapping
     public ResponseEntity<SelectionScreen> open(@PathVariable Long agendaId,
                                                 @Valid @RequestBody(required = false) OpenSessionRequest request) {
