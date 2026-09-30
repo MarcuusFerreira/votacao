@@ -16,6 +16,20 @@ Compose support) e injeta as credenciais do Postgres. A API fica
 disponível em `http://localhost:8080`, com Swagger UI em
 `http://localhost:8080/swagger-ui.html`.
 
+Para rodar a aplicação também em container (build multi-stage via
+`Dockerfile`):
+
+```bash
+docker compose --profile app up -d --build
+```
+
+A imagem é otimizada para startup: o build roda o **Spring AOT**
+(`processAot`, definições de beans geradas em tempo de build) e uma
+execução de treino gera o **cache AOT da JVM** (Java 25, JEP 483/514/515)
+com as classes já carregadas e linkadas. Medido contra o Postgres do
+compose: ~5,2 s na JVM pura → ~4,6 s só com Spring AOT → **~2,0 s** com
+Spring AOT + cache AOT.
+
 ## Configuração
 
 | Propriedade | Default | Descrição |
