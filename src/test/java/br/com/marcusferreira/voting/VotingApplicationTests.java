@@ -7,7 +7,6 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.http.client.HttpClientSettings;
-import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,9 +21,6 @@ class VotingApplicationTests extends AbstractIntegrationTest {
             return Thread.currentThread().isVirtual();
         }
     }
-
-    @Autowired
-    TestRestTemplate restTemplate;
 
     @Autowired
     HttpClientSettings httpClientSettings;

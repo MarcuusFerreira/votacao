@@ -39,6 +39,10 @@ public class ScreenUrls {
             .toUriString();
     }
 
+    public String newAgendaForm() {
+        return build(AGENDAS + "/formulario");
+    }
+
     public String agenda(Long agendaId) {
         return build(AGENDAS + "/{id}", agendaId);
     }
@@ -49,6 +53,10 @@ public class ScreenUrls {
 
     public String votes(Long agendaId) {
         return build(AGENDAS + "/{id}/votos", agendaId);
+    }
+
+    public String voteForm(Long agendaId) {
+        return build(AGENDAS + "/{id}/votos/formulario", agendaId);
     }
 
     public String result(Long agendaId) {

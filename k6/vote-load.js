@@ -50,16 +50,20 @@ export function setup() {
     if (agenda.status !== 201) {
         exec.test.abort(`Could not create agenda: HTTP ${agenda.status} ${agenda.body}`);
     }
-    const agendaId = agenda.json('id');
+    // Creation answers with a screen; the new agenda's URL comes in the Location header.
+    const location = agenda.headers['Location'];
+    const agendaId = location.substring(location.lastIndexOf('/') + 1);
 
+    const openedAt = Date.now();
     const session = http.post(`${BASE_URL}/api/v1/pautas/${agendaId}/sessoes`,
         JSON.stringify({ duracaoSegundos: SESSION_SECONDS }), JSON_HEADERS);
     if (session.status !== 201) {
         exec.test.abort(`Could not open session: HTTP ${session.status} ${session.body}`);
     }
 
-    console.log(`Agenda ${agendaId}: session open until ${session.json('fechaEm')}`);
-    return { agendaId, closesAt: session.json('fechaEm') };
+    const closesAt = openedAt + SESSION_SECONDS * 1000;
+    console.log(`Agenda ${agendaId}: session open until ${new Date(closesAt).toISOString()}`);
+    return { agendaId, closesAt };
 }
 
 export default function (data) {
@@ -82,10 +86,7 @@ export function teardown(data) {
     }), { ...JSON_HEADERS, responseCallback: http.expectedStatuses(409), tags: { name: 'duplicate_vote' } });
     check(duplicate, { 'duplicate vote rejected (409)': (r) => r.status === 409 });
 
-    const closesAtMs = typeof data.closesAt === 'number' ? data.closesAt * 1000 : Date.parse(data.closesAt);
-    const waitSeconds = Number.isNaN(closesAtMs)
-        ? SESSION_SECONDS
-        : Math.ceil((closesAtMs - Date.now()) / 1000) + 1;
+    const waitSeconds = Math.ceil((data.closesAt - Date.now()) / 1000) + 1;
     if (waitSeconds > 0) {
         console.log(`Waiting ${waitSeconds}s for the session to close...`);
         sleep(waitSeconds);

@@ -54,4 +54,14 @@ class ScreenSerializationTest {
 
         assertThat(json).doesNotContain("body");
     }
+
+    @Test
+    void serializesInputItemsWithIdTitleAndValue() throws Exception {
+        String text = mapper.writeValueAsString(FormItem.inputText("cpf", "CPF", ""));
+        String number = mapper.writeValueAsString(FormItem.inputNumber("duracaoSegundos", "Duração", 60));
+
+        assertThat(text).isEqualTo("{\"tipo\":\"INPUT_TEXTO\",\"id\":\"cpf\",\"titulo\":\"CPF\",\"valor\":\"\"}");
+        assertThat(number).isEqualTo("{\"tipo\":\"INPUT_NUMERO\",\"id\":\"duracaoSegundos\",\"titulo\":\"Duração\",\"valor\":60}");
+        assertThat(mapper.writeValueAsString(FormItem.text("Olá"))).isEqualTo("{\"tipo\":\"TEXTO\",\"texto\":\"Olá\"}");
+    }
 }

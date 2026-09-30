@@ -3,13 +3,9 @@ package br.com.marcusferreira.voting.screen;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.marcusferreira.voting.AbstractIntegrationTest;
-import br.com.marcusferreira.voting.agenda.dto.AgendaResponse;
-import br.com.marcusferreira.voting.agenda.dto.CreateAgendaRequest;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.TestPropertySource;
 
@@ -17,14 +13,12 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = "voting.public-base-url=http://10.0.2.2:8080")
 class ScreenBaseUrlIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired
-    TestRestTemplate restTemplate;
-
     @Test
     void screensPointToTheConfiguredPublicBaseUrl() {
-        ResponseEntity<AgendaResponse> created = restTemplate.postForEntity("/api/v1/pautas",
-            new CreateAgendaRequest("Pauta no emulador", null), AgendaResponse.class);
-        Long agendaId = created.getBody().id();
+        ResponseEntity<String> created = restTemplate.postForEntity("/api/v1/pautas",
+            json("{\"titulo\":\"Pauta no emulador\"}"), String.class);
+        String location = created.getHeaders().getLocation().toString();
+        Long agendaId = Long.valueOf(location.substring(location.lastIndexOf('/') + 1));
 
         String list = restTemplate.getForObject("/api/v1/pautas", String.class);
         String detail = restTemplate.getForObject("/api/v1/pautas/" + agendaId, String.class);

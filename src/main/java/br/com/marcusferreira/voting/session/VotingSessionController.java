@@ -1,7 +1,9 @@
 package br.com.marcusferreira.voting.session;
 
+import br.com.marcusferreira.voting.agenda.AgendaService;
+import br.com.marcusferreira.voting.screen.SelectionScreen;
+import br.com.marcusferreira.voting.screen.VotingScreens;
 import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
-import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.http.HttpStatus;
@@ -17,18 +19,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class VotingSessionController {
 
     private final VotingSessionService service;
+    private final AgendaService agendaService;
+    private final VotingScreens screens;
 
-    public VotingSessionController(VotingSessionService service) {
+    public VotingSessionController(VotingSessionService service, AgendaService agendaService, VotingScreens screens) {
         this.service = service;
+        this.agendaService = agendaService;
+        this.screens = screens;
     }
 
     @PostMapping
-    public ResponseEntity<VotingSessionResponse> open(@PathVariable Long agendaId,
-                                                      @Valid @RequestBody(required = false) OpenSessionRequest request) {
+    public ResponseEntity<SelectionScreen> open(@PathVariable Long agendaId,
+                                                @Valid @RequestBody(required = false) OpenSessionRequest request) {
         Duration duration = (request != null && request.durationSeconds() != null)
             ? Duration.ofSeconds(request.durationSeconds())
             : null;
-        VotingSession session = service.open(agendaId, duration);
-        return ResponseEntity.status(HttpStatus.CREATED).body(VotingSessionResponse.from(session));
+        service.open(agendaId, duration);
+        return ResponseEntity.status(HttpStatus.CREATED).body(screens.voteOptions(agendaService.findById(agendaId)));
     }
 }
