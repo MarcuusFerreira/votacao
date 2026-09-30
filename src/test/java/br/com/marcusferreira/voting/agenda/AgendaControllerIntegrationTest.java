@@ -7,7 +7,7 @@ import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -66,11 +66,16 @@ class AgendaControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"pagina=-1", "tamanho=0", "tamanho=101"})
-    void listRejectsOutOfRangePagination(String query) {
+    @CsvSource({
+        "pagina=-1, pagina, pagina deve ser maior ou igual a zero",
+        "tamanho=0, tamanho, tamanho deve ser no mínimo 1",
+        "tamanho=101, tamanho, tamanho deve ser no máximo 100"})
+    void listRejectsOutOfRangePaginationWithPortugueseMessages(String query, String field, String message) {
         ResponseEntity<String> response = restTemplate.getForEntity("/api/v1/pautas?" + query, String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(JsonPath.<String>read(response.getBody(), "$.detail")).isEqualTo("Erro de validação");
+        assertThat(JsonPath.<String>read(response.getBody(), "$.erros." + field)).isEqualTo(message);
     }
 
     @Test

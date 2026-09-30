@@ -16,6 +16,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -23,10 +24,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -100,6 +106,39 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         problem.setProperty("erros", errors);
         return handleExceptionInternal(ex, problem, headers, status, request);
+    }
+
+    // Constraints on @RequestParam/@PathVariable (e.g. pagination bounds) are reported through
+    // method validation instead of MethodArgumentNotValidException.
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Erro de validação");
+        Map<String, String> errors = new LinkedHashMap<>();
+        for (ParameterValidationResult result : ex.getParameterValidationResults()) {
+            if (result instanceof ParameterErrors parameterErrors) {
+                for (FieldError fieldError : parameterErrors.getFieldErrors()) {
+                    errors.put(jsonFieldName(parameterErrors.getArgument(), fieldError.getField()), fieldError.getDefaultMessage());
+                }
+            } else {
+                String name = parameterName(result.getMethodParameter());
+                result.getResolvableErrors().forEach(error -> errors.putIfAbsent(name, error.getDefaultMessage()));
+            }
+        }
+        problem.setProperty("erros", errors);
+        return handleExceptionInternal(ex, problem, headers, status, request);
+    }
+
+    private static String parameterName(MethodParameter parameter) {
+        RequestParam requestParam = parameter.getParameterAnnotation(RequestParam.class);
+        if (requestParam != null && !requestParam.name().isEmpty()) {
+            return requestParam.name();
+        }
+        PathVariable pathVariable = parameter.getParameterAnnotation(PathVariable.class);
+        if (pathVariable != null && !pathVariable.name().isEmpty()) {
+            return pathVariable.name();
+        }
+        return parameter.getParameterName();
     }
 
     @Override
