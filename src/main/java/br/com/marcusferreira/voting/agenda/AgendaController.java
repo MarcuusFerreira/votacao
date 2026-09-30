@@ -63,7 +63,7 @@ public class AgendaController {
         }
 
         VotingSession session = currentSession.get();
-        if (session.isOpen()) {
+        if (votingSessionService.isOpen(session)) {
             String voteUrl = "/api/v1/pautas/" + id + "/votos";
             return new SelectionScreen(agenda.getTitle(), List.of(
                 new SelectionItem("Sim", voteUrl, Map.of("voto", "SIM")),

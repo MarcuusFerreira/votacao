@@ -28,7 +28,7 @@ public class VotingResultController {
         VotingSession session = votingSessionService.findCurrentSession(agendaId)
             .orElseThrow(() -> new SessionNotFoundException(agendaId));
 
-        if (session.isOpen()) {
+        if (votingSessionService.isOpen(session)) {
             return new FormScreen("Resultado",
                 List.of(FormItem.text("Sessão em andamento até " + session.getClosesAt())),
                 null, null);

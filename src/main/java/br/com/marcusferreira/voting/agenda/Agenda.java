@@ -27,10 +27,10 @@ public class Agenda {
     protected Agenda() {
     }
 
-    public Agenda(String title, String description) {
+    public Agenda(String title, String description, Instant createdAt) {
         this.title = title;
         this.description = description;
-        this.createdAt = Instant.now();
+        this.createdAt = createdAt;
     }
 
     public Long getId() {

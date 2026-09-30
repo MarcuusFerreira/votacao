@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.marcusferreira.voting.common.exception.AgendaNotFoundException;
 import java.util.Optional;
+import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -21,7 +22,7 @@ class AgendaServiceTest {
 
     @Test
     void createSavesTitleAndDescription() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, Clock.systemUTC());
         when(repository.save(any(Agenda.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Agenda agenda = service.create("Reforma do estatuto", "Detalhes");
@@ -33,7 +34,7 @@ class AgendaServiceTest {
 
     @Test
     void findByIdThrowsWhenMissing() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, Clock.systemUTC());
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.findById(99L))

@@ -7,6 +7,7 @@ import br.com.marcusferreira.voting.agenda.dto.AgendaResponse;
 import br.com.marcusferreira.voting.agenda.dto.CreateAgendaRequest;
 import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
 import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -87,15 +88,14 @@ class VotingSessionControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void openingNewSessionAfterPreviousSessionClosedReturns409() throws InterruptedException {
+    void openingNewSessionAfterPreviousSessionClosedReturns409() {
         Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
             new CreateAgendaRequest("Pauta com sessão encerrada", null), AgendaResponse.class).getBody().id();
         ResponseEntity<VotingSessionResponse> first = restTemplate.postForEntity(
             "/api/v1/pautas/" + agendaId + "/sessoes", new OpenSessionRequest(1L), VotingSessionResponse.class);
         assertThat(first.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
-        // Make sure the first session is actually closed before the new attempt.
-        Thread.sleep(1500);
+        clock.advance(Duration.ofSeconds(2));
 
         ResponseEntity<String> response = restTemplate.postForEntity(
             "/api/v1/pautas/" + agendaId + "/sessoes", new OpenSessionRequest(120L), String.class);

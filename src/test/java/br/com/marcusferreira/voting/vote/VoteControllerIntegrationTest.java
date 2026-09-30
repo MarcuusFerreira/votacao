@@ -10,6 +10,7 @@ import br.com.marcusferreira.voting.session.dto.OpenSessionRequest;
 import br.com.marcusferreira.voting.session.dto.VotingSessionResponse;
 import br.com.marcusferreira.voting.vote.dto.CastVoteRequest;
 import br.com.marcusferreira.voting.vote.dto.VoteResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -106,11 +107,7 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
         restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/votos",
             new CastVoteRequest("associado-r1", "12345678900", VoteOption.YES), VoteResponse.class);
 
-        try {
-            Thread.sleep(1500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        clock.advance(Duration.ofSeconds(2));
 
         ResponseEntity<String> response = restTemplate.getForEntity(
             "/api/v1/pautas/" + agendaId + "/resultado", String.class);
@@ -150,13 +147,13 @@ class VoteControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void votingAfterSessionClosedReturns409() throws InterruptedException {
+    void votingAfterSessionClosedReturns409() {
         Mockito.doNothing().when(memberEligibilityClient).checkEligibility(Mockito.anyString());
         Long agendaId = restTemplate.postForEntity("/api/v1/pautas",
             new CreateAgendaRequest("Pauta com sessão já encerrada", null), AgendaResponse.class).getBody().id();
         restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
             new OpenSessionRequest(1L), VotingSessionResponse.class);
-        Thread.sleep(1500);
+        clock.advance(Duration.ofSeconds(2));
 
         ResponseEntity<String> response = restTemplate.postForEntity(
             "/api/v1/pautas/" + agendaId + "/votos",

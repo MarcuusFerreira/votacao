@@ -5,6 +5,7 @@ import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.common.exception.SessionAlreadyOpenException;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
@@ -19,19 +20,21 @@ public class VotingSessionService {
     private final VotingSessionRepository repository;
     private final AgendaService agendaService;
     private final VotingProperties properties;
+    private final Clock clock;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VotingSessionService.class);
 
     public VotingSessionService(VotingSessionRepository repository, AgendaService agendaService,
-                                VotingProperties properties) {
+                                VotingProperties properties, Clock clock) {
         this.repository = repository;
         this.agendaService = agendaService;
         this.properties = properties;
+        this.clock = clock;
     }
 
     public VotingSession open(Long agendaId, Duration requestedDuration) {
         agendaService.findById(agendaId);
         findCurrentSession(agendaId)
-            .filter(VotingSession::isOpen)
+            .filter(this::isOpen)
             .ifPresent(session -> {
                 throw new SessionAlreadyOpenException(agendaId);
             });
@@ -41,7 +44,7 @@ public class VotingSessionService {
             // The unique constraint on voting_sessions(agenda_id) (V2) is the definitive guarantee of a
             // single session per agenda: it covers already-closed sessions and concurrent openings,
             // cases the in-memory check above cannot detect.
-            session = repository.save(new VotingSession(agendaId, duration));
+            session = repository.save(new VotingSession(agendaId, clock.instant(), duration));
         } catch (DataIntegrityViolationException e) {
             if (violates(e, SINGLE_SESSION_CONSTRAINT)) {
                 throw new SessionAlreadyOpenException(agendaId, e);
@@ -61,6 +64,10 @@ public class VotingSessionService {
         return false;
     }
 
+    public boolean isOpen(VotingSession session) {
+        return session.isOpen(clock.instant());
+    }
+
     public Optional<VotingSession> findCurrentSession(Long agendaId) {
         return repository.findFirstByAgendaIdOrderByIdDesc(agendaId);
     }
@@ -68,7 +75,7 @@ public class VotingSessionService {
     public VotingSession getOpenSessionOrThrow(Long agendaId) {
         VotingSession session = findCurrentSession(agendaId)
             .orElseThrow(() -> new SessionNotFoundException(agendaId));
-        if (!session.isOpen()) {
+        if (!isOpen(session)) {
             throw new SessionClosedException(agendaId);
         }
         return session;

@@ -29,14 +29,14 @@ public class VotingSession {
     protected VotingSession() {
     }
 
-    public VotingSession(Long agendaId, Duration duration) {
+    public VotingSession(Long agendaId, Instant openedAt, Duration duration) {
         this.agendaId = agendaId;
-        this.openedAt = Instant.now();
+        this.openedAt = openedAt;
         this.closesAt = this.openedAt.plus(duration);
     }
 
-    public boolean isOpen() {
-        return Instant.now().isBefore(closesAt);
+    public boolean isOpen(Instant now) {
+        return now.isBefore(closesAt);
     }
 
     public Long getId() {

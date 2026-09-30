@@ -8,6 +8,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import java.time.Clock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class AgendaServiceLoggingTest {
 
     @Test
     void createLogsAtInfoLevel() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, Clock.systemUTC());
         when(repository.save(any(Agenda.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.create("Pauta logada", null);

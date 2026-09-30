@@ -1,14 +1,32 @@
 package br.com.marcusferreira.voting;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
+@Import(AbstractIntegrationTest.ClockConfiguration.class)
 public abstract class AbstractIntegrationTest {
+
+    @TestConfiguration
+    static class ClockConfiguration {
+        @Bean
+        @Primary
+        MutableClock mutableClock() {
+            return new MutableClock();
+        }
+    }
+
+    @Autowired
+    protected MutableClock clock;
 
     // Singleton container pattern: this base class is extended by multiple concrete
     // integration test classes. Using @Testcontainers/@Container would make JUnit's

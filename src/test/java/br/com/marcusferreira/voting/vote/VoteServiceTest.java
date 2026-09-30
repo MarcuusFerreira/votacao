@@ -15,6 +15,7 @@ import br.com.marcusferreira.voting.member.MemberEligibilityClient;
 import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
 import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -42,7 +43,7 @@ class VoteServiceTest {
     @Test
     void castChecksSessionAndEligibilityBeforeInsertingWhenVerificationEnabled() {
         VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(true));
-        when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Duration.ofSeconds(60)));
+        when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
         when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(true);
 
         service.cast(1L, "associado-1", "12345678900", VoteOption.YES);
@@ -89,7 +90,7 @@ class VoteServiceTest {
     void castTreatsSessionAsClosedWhenNothingWasInsertedButSessionLooksOpen() {
         VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(false));
         when(voteRepository.insertIntoOpenSession(1L, "associado-1", VoteOption.YES)).thenReturn(false);
-        when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Duration.ofSeconds(60)));
+        when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
 
         assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))
             .isInstanceOf(SessionClosedException.class);

@@ -2,7 +2,7 @@ package br.com.marcusferreira.voting.vote;
 
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import java.sql.Timestamp;
-import java.time.Instant;
+import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -14,16 +14,18 @@ import org.springframework.stereotype.Repository;
 public class VoteJdbcRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final Clock clock;
 
-    public VoteJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+    public VoteJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate, Clock clock) {
         this.jdbcTemplate = jdbcTemplate;
+        this.clock = clock;
     }
 
     /**
      * Records the vote in the agenda's session in a single statement, as long as the session is
      * still open. Returns {@code false} when nothing was inserted: the agenda has no session or
      * it is already closed.
-     */
+     */ 
     public boolean insertIntoOpenSession(Long agendaId, String memberId, VoteOption vote) {
         String sql = """
             INSERT INTO votes (session_id, member_id, vote, created_at)
@@ -35,7 +37,7 @@ public class VoteJdbcRepository {
             .addValue("agendaId", agendaId)
             .addValue("memberId", memberId)
             .addValue("vote", vote.name())
-            .addValue("now", Timestamp.from(Instant.now()));
+            .addValue("now", Timestamp.from(clock.instant()));
         try {
             return jdbcTemplate.update(sql, params) == 1;
         } catch (DuplicateKeyException e) {
