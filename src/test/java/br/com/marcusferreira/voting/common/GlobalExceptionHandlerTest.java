@@ -1,5 +1,6 @@
 package br.com.marcusferreira.voting.common;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.hamcrest.Matchers.containsString;
@@ -162,7 +163,9 @@ class GlobalExceptionHandlerTest {
     void unknownRouteReturnsProblemDetail() throws Exception {
         mockMvc.perform(get("/test/does-not-exist"))
             .andExpect(status().isNotFound())
-            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.detail").value("Recurso não encontrado"))
+            .andExpect(content().string(not(containsString("static"))));
     }
 
     @Test
@@ -192,5 +195,12 @@ class GlobalExceptionHandlerTest {
                 .content("{\"associadoId\":\"a1\",\"cpf\":\"123.456\",\"voto\":\"SIM\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.erros.cpf").value("cpf deve conter 11 dígitos numéricos"));
+    }
+
+    @Test
+    void unsupportedMethodReturnsProblemDetailInPortuguese() throws Exception {
+        mockMvc.perform(delete("/test/agendas/1"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(jsonPath("$.detail").value("Método HTTP não suportado neste recurso"));
     }
 }
