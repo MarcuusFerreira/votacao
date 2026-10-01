@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 // The app POSTs to every URL embedded in a screen (Annex 1), so navigation endpoints accept both
-// GET (direct access, e.g. the first screen) and POST.
+// GET (direct access, e.g. the first screen) and POST. POST /api/v1/pautas only ever creates.
 @Tag(name = "Pautas")
 @RestController
 @RequestMapping("/api/v1/pautas")
@@ -54,21 +54,24 @@ public class AgendaController {
     }
 
     // POST with "pagina" is navigation (e.g. "Próxima página"); a POST without it creates an agenda.
-    @Operation(summary = "Página da lista de pautas", description = "Tela SELECAO; acessível por POST porque é o destino do item \"Próxima página\" e do botão \"Voltar\".")
-    @RequestMapping(method = {RequestMethod.GET, RequestMethod.POST}, params = "pagina")
-    public SelectionScreen listPage(
-            @RequestParam(name = "pagina") @Min(value = 0, message = "pagina deve ser maior ou igual a zero") int page,
+    @Operation(summary = "Lista as pautas", description = "Tela SELECAO de entrada do app: \"Nova pauta\", pautas mais recentes primeiro e \"Próxima página\".")
+    @GetMapping
+    public SelectionScreen list(
+            @RequestParam(name = "pagina", defaultValue = "0") @Min(value = 0, message = "pagina deve ser maior ou igual a zero") int page,
             @RequestParam(name = "tamanho", defaultValue = "20") @Min(value = 1, message = "tamanho deve ser no mínimo 1")
             @Max(value = 100, message = "tamanho deve ser no máximo 100") int size) {
         return screens.agendaList(agendaService.findPage(page, size), page, size);
     }
 
-    @Operation(summary = "Lista as pautas", description = "Tela SELECAO de entrada do app: \"Nova pauta\", pautas mais recentes primeiro e \"Próxima página\".")
-    @GetMapping
-    public SelectionScreen list(
+    // Same list as GET /api/v1/pautas, on its own route so screens can navigate to it by POST
+    // ("Próxima página", "Voltar") without overlapping with POST /api/v1/pautas, which creates.
+    @Operation(summary = "Lista as pautas (navegação por telas)", description = "Mesma tela da listagem, acessível por POST a partir dos itens e botões das telas.")
+    @RequestMapping(path = "/lista", method = {RequestMethod.GET, RequestMethod.POST})
+    public SelectionScreen listForNavigation(
+            @RequestParam(name = "pagina", defaultValue = "0") @Min(value = 0, message = "pagina deve ser maior ou igual a zero") int page,
             @RequestParam(name = "tamanho", defaultValue = "20") @Min(value = 1, message = "tamanho deve ser no mínimo 1")
             @Max(value = 100, message = "tamanho deve ser no máximo 100") int size) {
-        return screens.agendaList(agendaService.findPage(0, size), 0, size);
+        return list(page, size);
     }
 
     @Operation(summary = "Formulário de nova pauta", description = "Tela FORMULARIO com os campos titulo e descricao.")

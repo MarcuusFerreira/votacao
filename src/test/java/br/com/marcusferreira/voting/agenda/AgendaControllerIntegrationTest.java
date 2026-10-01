@@ -54,15 +54,23 @@ class AgendaControllerIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(JsonPath.<List<String>>read(body, "$.itens[*].texto"))
             .containsExactly("Nova pauta", "Paginada C", "Paginada B", "Próxima página");
-        assertThat(JsonPath.<String>read(body, "$.itens[3].url")).contains("pagina=1").contains("tamanho=2");
+        assertThat(JsonPath.<String>read(body, "$.itens[3].url")).contains("/api/v1/pautas/lista?pagina=1&tamanho=2");
     }
 
     @Test
-    void nextPageIsReachableByPostAsTheAppDoes() {
-        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/pautas?pagina=0&tamanho=1", json("{}"), String.class);
+    void listNavigationHasItsOwnRouteReachableByPostAsTheAppDoes() {
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/pautas/lista?pagina=0&tamanho=1", json("{}"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(JsonPath.<String>read(response.getBody(), "$.tipo")).isEqualTo("SELECAO");
+    }
+
+    @Test
+    void postToAgendasAlwaysCreatesEvenWithPaginationParameters() {
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/pautas?pagina=0", json("{}"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("titulo é obrigatório");
     }
 
     @ParameterizedTest

@@ -14,7 +14,7 @@ class ScreenUrlsTest {
         assertThat(urls.openSession(4L)).isEqualTo("http://10.0.2.2:8080/api/v1/pautas/4/sessoes");
         assertThat(urls.votes(4L)).isEqualTo("http://10.0.2.2:8080/api/v1/pautas/4/votos");
         assertThat(urls.result(4L)).isEqualTo("http://10.0.2.2:8080/api/v1/pautas/4/resultado");
-        assertThat(urls.agendasPage(1, 20)).isEqualTo("http://10.0.2.2:8080/api/v1/pautas?pagina=1&tamanho=20");
+        assertThat(urls.agendasPage(1, 20)).isEqualTo("http://10.0.2.2:8080/api/v1/pautas/lista?pagina=1&tamanho=20");
     }
 
     @Test

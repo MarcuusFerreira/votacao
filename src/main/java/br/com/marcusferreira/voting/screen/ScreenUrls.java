@@ -33,7 +33,7 @@ public class ScreenUrls {
     }
 
     public String agendasPage(int page, int size) {
-        return UriComponentsBuilder.fromUriString(agendas())
+        return UriComponentsBuilder.fromUriString(build(AGENDAS + "/lista"))
             .queryParam("pagina", page)
             .queryParam("tamanho", size)
             .toUriString();
