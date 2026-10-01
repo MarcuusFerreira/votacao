@@ -41,6 +41,8 @@ Spring AOT + cache AOT. A otimização fica isolada no `Dockerfile`: o
 | Propriedade | Default | Descrição |
 |---|---|---|
 | `voting.public-base-url` | `http://localhost:8080` | Base das URLs de callback embutidas nas telas. Emulador Android: `http://10.0.2.2:8080`; dispositivo físico: `http://<ip-da-máquina>:8080`; publicado: `https://<domínio>` |
+| `voting.display-zone` | `America/Sao_Paulo` | Fuso usado para exibir datas e horas nas telas |
+| `voting.cpf-hash-key` | chave de desenvolvimento | Chave secreta do HMAC que substitui o CPF no banco. **Defina `VOTING_CPF_HASH_KEY` em qualquer ambiente real** |
 | `voting.session.default-duration` | `60s` | Duração da sessão quando não informada na abertura |
 | `voting.member.base-url` | `https://user-info.herokuapp.com` | Base URL do serviço externo de verificação de CPF (bônus 1) |
 | `voting.member.verification-enabled` | `false` | Habilita a verificação de CPF no serviço externo antes de registrar cada voto (bônus 1) |
@@ -63,13 +65,13 @@ Jornada completa, a partir de `GET /api/v1/pautas`:
 
 | Tela | Conteúdo | Ação | Próxima tela |
 |---|---|---|---|
-| SELECAO "Pautas" | "Nova pauta", uma entrada por pauta (mais recentes primeiro), "Próxima página" | item | formulário de nova pauta ou detalhe da pauta |
+| SELECAO "Pautas" | "Nova pauta", uma entrada por pauta (mais recentes primeiro), "Próxima página" | item | formulário de nova pauta, detalhe da pauta ou próxima página (`/pautas/lista`) |
 | FORMULARIO "Nova pauta" | `INPUT_TEXTO` `titulo` e `descricao` | Cadastrar → `POST /pautas` (201 + `Location`) | abertura de sessão |
 | FORMULARIO da pauta sem sessão | descrição + `INPUT_NUMERO` `duracaoSegundos` (padrão 60) | Abrir sessão → `POST /pautas/{id}/sessoes` (201) | votação |
 | SELECAO da pauta com sessão aberta | "Sim" / "Não" com `body` `{"voto": "SIM"}` / `{"voto": "NAO"}` | item → `POST /pautas/{id}/votos/formulario` | identificação do associado |
 | FORMULARIO de voto | `INPUT_TEXTO` `associadoId` e `cpf`; o botão carrega `{"voto": ...}` | Confirmar voto → `POST /pautas/{id}/votos` (201) | voto registrado |
 | FORMULARIO "Voto registrado" | confirmação | Ver resultado / Voltar | resultado ou lista |
-| FORMULARIO "Resultado" | "Sessão em andamento até ..." ou "Sim: X / Não: Y — Vencedor: ..." | Atualizar / Voltar às pautas | resultado ou lista |
+| FORMULARIO "Resultado" | "Sessão em andamento até dd/MM/aaaa hh:mm:ss" ou "Sim: X / Não: Y — Vencedor: ..." | Atualizar / Voltar às pautas | resultado ou lista |
 
 Premissas e decisões:
 
@@ -78,7 +80,9 @@ Premissas e decisões:
   emulador, em dispositivo físico ou publicado apenas por configuração.
 - Como o app faz POST em toda URL de tela, os endpoints de navegação
   (lista, detalhe, formulário de nova pauta, resultado) aceitam GET e
-  POST. Na lista, POST com `pagina` navega; POST sem `pagina` cadastra.
+  POST. A navegação da lista ("Próxima página", "Voltar") usa a rota
+  própria `/api/v1/pautas/lista`, para que `POST /api/v1/pautas` tenha um
+  único significado: cadastrar.
 - O associado é identificado pelo `associadoId` digitado no formulário de
   voto, como define o enunciado ("identificado por um id único"); o CPF é o
   dado usado na verificação de elegibilidade (bônus 1).
@@ -107,7 +111,8 @@ curl -X POST http://localhost:8080/api/v1/pautas/1/votos \
 curl http://localhost:8080/api/v1/pautas/1/resultado
 ```
 
-Validações de entrada: `duracaoSegundos` entre 1 e 86.400 (24 h);
+Validações de entrada: `duracaoSegundos` inteiro entre 1 e 86.400 (24 h),
+sem casas decimais;
 `titulo` obrigatório; `associadoId` obrigatório, até 64 caracteres; `cpf`
 com 11 dígitos numéricos; paginação com `pagina ≥ 0` e `tamanho` de 1 a 100.
 
@@ -134,14 +139,23 @@ Com a verificação ligada:
 | timeout, 5xx, status ou corpo inesperado | **503** — verificação indisponível, tente novamente |
 
 A política é **fail-closed**: se a elegibilidade não pode ser confirmada,
-o voto é recusado em vez de aceito sem verificação. A sessão é checada
-antes da chamada externa, para não gastar a chamada com sessão encerrada.
+o voto é recusado em vez de aceito sem verificação. Antes da chamada
+externa, a API confere se a sessão está aberta e se o associado ou o CPF
+já votaram: um voto repetido recebe 409 sem gastar a chamada (e sem
+depender da disponibilidade do serviço). As constraints do banco seguem
+sendo a garantia final contra votos simultâneos.
 
 Outras garantias em torno do CPF:
 
-- **Vínculo com o voto**: o CPF é gravado com o voto e é único por sessão
-  (`votes(session_id, cpf)`), então um CPF apto não pode ser reaproveitado
-  para votar de novo sob outro `associadoId` (409).
+- **Vínculo com o voto**: cada voto guarda um HMAC-SHA256 do CPF, único por
+  sessão (`votes(session_id, cpf_hash)`), então um CPF apto não pode ser
+  reaproveitado para votar de novo sob outro `associadoId` (409).
+- **CPF fora do banco**: o CPF em si não é persistido. O HMAC usa uma chave
+  secreta (`voting.cpf-hash-key`) para que o valor gravado não possa ser
+  revertido testando todos os CPFs possíveis — um hash simples não
+  protegeria um espaço tão pequeno. Votos registrados antes dessa mudança
+  ficaram sem o vínculo, porque o banco não tem a chave para calcular o
+  hash.
 - **Privacidade**: mensagens de erro e logs exibem o CPF mascarado
   (`*********00`); o log de indisponibilidade registra apenas o tipo do
   erro, porque a mensagem original contém a URL com o CPF.
@@ -150,7 +164,8 @@ Outras garantias em torno do CPF:
 
 | Método | Caminho | Resposta |
 |---|---|---|
-| GET, POST | `/api/v1/pautas?pagina=&tamanho=` | SELECAO com as pautas |
+| GET | `/api/v1/pautas?pagina=&tamanho=` | SELECAO com as pautas (entrada do app) |
+| GET, POST | `/api/v1/pautas/lista?pagina=&tamanho=` | a mesma SELECAO, para navegação a partir das telas |
 | GET, POST | `/api/v1/pautas/formulario` | FORMULARIO de nova pauta |
 | POST | `/api/v1/pautas` | 201 + `Location` + FORMULARIO de abertura de sessão |
 | GET, POST | `/api/v1/pautas/{id}` | tela conforme o estado da pauta (sem sessão / aberta / encerrada) |
@@ -160,20 +175,26 @@ Outras garantias em torno do CPF:
 | GET, POST | `/api/v1/pautas/{id}/resultado` | FORMULARIO com o resultado ou o andamento |
 
 Códigos de erro: 400 (validação), 403 (associado não apto), 404 (pauta,
-sessão ou CPF inexistente), 409 (sessão já existente ou encerrada, voto ou
-CPF repetido), 503 (verificação de CPF indisponível).
+sessão, CPF ou rota inexistente), 405 (método não suportado), 409 (sessão
+já existente ou encerrada, voto ou CPF repetido), 503 (verificação de CPF
+indisponível). Todos em `application/problem+json`, com mensagens em
+português.
 
 ## Testes
 
 ```bash
 ./gradlew test              # suíte completa + relatório de cobertura
+./gradlew check             # testes + falha se a cobertura de linhas ficar abaixo de 90%
 ./gradlew performanceTest   # benchmark de banco com 100 mil votos (sob demanda)
 ```
 
 Testes de integração usam Testcontainers (sobe um Postgres real
 automaticamente — requer Docker disponível). O relatório de cobertura do
-JaCoCo fica em `build/reports/jacoco/test/html/index.html` (~96% das
-linhas). O relógio da aplicação é injetado (`Clock`), então os testes
+JaCoCo fica em `build/reports/jacoco/test/html/index.html` (~95% das
+linhas). Análise estática (Checkstyle/SpotBugs) não foi incluída: para o
+tamanho deste projeto, o limite de cobertura e a suíte de integração
+contra Postgres real pegam mais problemas do que regras de estilo, que
+adicionariam configuração e ruído. O relógio da aplicação é injetado (`Clock`), então os testes
 avançam o tempo para encerrar sessões em vez de dormir.
 
 Destaques da suíte:
@@ -236,11 +257,12 @@ limites de recursos por container. Verificação de CPF (bônus 1)
 **desabilitada** — com ela, cada voto dependeria da latência do serviço
 externo. Pool de 40 conexões e demais configurações padrão do repositório.
 
-Versão atual (voto vinculado ao CPF, respostas em tela):
+Versão atual (voto vinculado ao HMAC do CPF, respostas em tela; média de
+2 execuções):
 
 | Votos | VUs | Tempo de envio | Vazão | Latência média | p95 | Erros |
 |---|---|---|---|---|---|---|
-| 100.000 | 200 | ~16 s | ~6.250 votos/s | 32 ms | 55 ms | 0% |
+| 100.000 | 200 | ~15 s | ~6.700 votos/s | 29 ms | 55 ms | 0% |
 
 Versão anterior (antes de vincular o CPF ao voto e de responder com telas):
 
@@ -250,9 +272,10 @@ Versão anterior (antes de vincular o CPF ao voto e de responder com telas):
 | 500.000 | 300 | 1 min 38 s | ~5.100 votos/s | 59 ms | 123 ms | 0% |
 | 1.000.000 | 200 | 2 min 03 s | ~8.150 votos/s | 24 ms | 41 ms | 0% |
 
-A diferença de ~30% entre as versões é o custo de a correção ter mais
-trabalho por voto: a segunda constraint única (`session_id, cpf`) é
-verificada em cada insert, e a resposta passou a ser uma tela.
+A diferença de ~20–30% entre as versões é o custo de a correção ter mais
+trabalho por voto: a segunda constraint única (`session_id, cpf_hash`) é
+verificada em cada insert, e a resposta passou a ser uma tela. O cálculo
+do HMAC não mudou o resultado de forma mensurável.
 
 Em todas as execuções: todos os votos retornaram `201`, o voto repetido
 retornou `409` e a apuração bateu com o total enviado. A persistência foi
@@ -283,7 +306,9 @@ Observações:
   antes e gravar depois. A unicidade vem de constraints (`votes(session_id,
   member_id)`, `votes(session_id, cpf)` e `voting_sessions(agenda_id)`),
   não de checagens em memória — elimina race conditions sob concorrência e
-  garante um voto por associado **por pauta**.
+  garante um voto por associado **por pauta**. Qual constraint foi violada é
+  identificado pelo nome que o driver informa, nunca pelo texto da
+  mensagem.
 - **Sem scheduler**: uma sessão "aberta" é derivada comparando
   `closes_at` com o relógio (`Clock` injetado) no momento da leitura, não
   um campo de status mutável atualizado por um job. As datas são
