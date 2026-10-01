@@ -6,6 +6,7 @@ import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -50,6 +51,27 @@ public class VoteJdbcRepository {
                 throw new CpfAlreadyUsedException(cpf, e);
             }
             throw new DuplicateVoteException(memberId, e);
+        }
+    }
+
+    /**
+     * Cheap pre-check used before the external CPF verification, so a repeated vote is answered
+     * with 409 without spending a call. The unique constraints remain the actual guarantee.
+     */
+    public void ensureNotVoted(Long sessionId, String memberId, String cpf) {
+        String sql = """
+            SELECT member_id = :memberId AS same_member
+            FROM votes
+            WHERE session_id = :sessionId AND (member_id = :memberId OR cpf = :cpf)
+            LIMIT 1
+            """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+            .addValue("sessionId", sessionId)
+            .addValue("memberId", memberId)
+            .addValue("cpf", cpf);
+        List<Boolean> matches = jdbcTemplate.queryForList(sql, params, Boolean.class);
+        if (!matches.isEmpty()) {
+            throw matches.getFirst() ? new DuplicateVoteException(memberId) : new CpfAlreadyUsedException(cpf);
         }
     }
 

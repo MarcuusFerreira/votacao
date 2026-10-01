@@ -1,6 +1,7 @@
 package br.com.marcusferreira.voting.vote;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.marcusferreira.voting.AbstractIntegrationTest;
@@ -103,5 +104,19 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> voteRepository.insertIntoOpenSession(agendaId, "associado-duplicado", "00000000007", VoteOption.NO))
             .isInstanceOf(DuplicateVoteException.class);
+    }
+
+    @Test
+    void ensureNotVotedDetectsRepeatedMemberOrCpfAndAcceptsNewOnes() {
+        Long agendaId = agendaService.create("Pauta com pré-checagem", null).getId();
+        Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(60)).getId();
+        voteRepository.insertIntoOpenSession(agendaId, "associado-votou", "22233344455", VoteOption.YES);
+
+        assertThatThrownBy(() -> voteRepository.ensureNotVoted(sessionId, "associado-votou", "99999999999"))
+            .isInstanceOf(DuplicateVoteException.class);
+        assertThatThrownBy(() -> voteRepository.ensureNotVoted(sessionId, "associado-novo", "22233344455"))
+            .isInstanceOf(CpfAlreadyUsedException.class);
+        assertThatCode(() -> voteRepository.ensureNotVoted(sessionId, "associado-novo", "99999999999"))
+            .doesNotThrowAnyException();
     }
 }

@@ -9,12 +9,14 @@ import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import br.com.marcusferreira.voting.member.MemberEligibilityClient;
+import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,6 +93,7 @@ class VoteServiceLoggingTest {
         VoteService verifying = new VoteService(voteRepository, votingSessionService, memberEligibilityClient,
             new VotingProperties("http://localhost:8080", new VotingProperties.Session(Duration.ofSeconds(60)),
                 new VotingProperties.Member("http://example.com", true)));
+        when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
         doThrow(new MemberNotEligibleException("12345678900")).when(memberEligibilityClient).checkEligibility("12345678900");
 
         assertThatThrownBy(() -> verifying.cast(1L, "associado-1", "12345678900", VoteOption.YES))

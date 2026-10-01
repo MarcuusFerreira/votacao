@@ -2,6 +2,8 @@ package br.com.marcusferreira.voting.vote;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -9,6 +11,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.com.marcusferreira.voting.common.VotingProperties;
+import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.common.exception.SessionClosedException;
 import br.com.marcusferreira.voting.common.exception.SessionNotFoundException;
 import br.com.marcusferreira.voting.member.MemberEligibilityClient;
@@ -50,6 +53,7 @@ class VoteServiceTest {
 
         InOrder inOrder = inOrder(votingSessionService, memberEligibilityClient, voteRepository);
         inOrder.verify(votingSessionService).getOpenSessionOrThrow(1L);
+        inOrder.verify(voteRepository).ensureNotVoted(any(), eq("associado-1"), eq("12345678900"));
         inOrder.verify(memberEligibilityClient).checkEligibility("12345678900");
         inOrder.verify(voteRepository).insertIntoOpenSession(1L, "associado-1", "12345678900", VoteOption.YES);
     }
@@ -94,5 +98,16 @@ class VoteServiceTest {
 
         assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))
             .isInstanceOf(SessionClosedException.class);
+    }
+
+    @Test
+    void castDoesNotCallTheExternalServiceWhenTheMemberAlreadyVoted() {
+        VoteService service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient, properties(true));
+        when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
+        doThrow(new DuplicateVoteException("associado-1")).when(voteRepository).ensureNotVoted(any(), eq("associado-1"), eq("12345678900"));
+
+        assertThatThrownBy(() -> service.cast(1L, "associado-1", "12345678900", VoteOption.YES))
+            .isInstanceOf(DuplicateVoteException.class);
+        verify(memberEligibilityClient, never()).checkEligibility(any());
     }
 }

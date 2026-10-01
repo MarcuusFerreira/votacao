@@ -30,8 +30,10 @@ public class VoteService {
     public void cast(Long agendaId, String memberId, String cpf, VoteOption vote) {
         try {
             if (properties.member().verificationEnabled()) {
-                // Checked first so a closed session does not cost a call to the external service.
-                votingSessionService.getOpenSessionOrThrow(agendaId);
+                // Checked first so a closed session or a repeated vote does not cost a call to the
+                // external service.
+                VotingSession session = votingSessionService.getOpenSessionOrThrow(agendaId);
+                voteRepository.ensureNotVoted(session.getId(), memberId, cpf);
                 memberEligibilityClient.checkEligibility(cpf);
             }
             if (!voteRepository.insertIntoOpenSession(agendaId, memberId, cpf, vote)) {
