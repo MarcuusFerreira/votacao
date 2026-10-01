@@ -71,6 +71,22 @@ tasks.named('jacocoTestReport') {
 	}
 }
 
+// The build fails if line coverage drops below 90% (currently ~95%).
+tasks.named('jacocoTestCoverageVerification') {
+	violationRules {
+		rule {
+			limit {
+				counter = 'LINE'
+				minimum = 0.90
+			}
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
 // Spring AOT is used to speed up the application's startup (see Dockerfile); tests keep
 // running on the regular JVM path, so their AOT processing is skipped.
 tasks.named('processTestAot') {
