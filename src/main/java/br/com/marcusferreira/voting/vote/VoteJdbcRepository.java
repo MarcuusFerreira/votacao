@@ -1,6 +1,7 @@
 package br.com.marcusferreira.voting.vote;
 
 import br.com.marcusferreira.voting.common.ConstraintViolations;
+import br.com.marcusferreira.voting.common.CpfHasher;
 import br.com.marcusferreira.voting.common.exception.CpfAlreadyUsedException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import java.sql.Timestamp;
@@ -16,14 +17,16 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class VoteJdbcRepository {
 
-    private static final String CPF_CONSTRAINT = "uk_votes_session_cpf";
+    private static final String CPF_CONSTRAINT = "uk_votes_session_cpf_hash";
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final Clock clock;
+    private final CpfHasher cpfHasher;
 
-    public VoteJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate, Clock clock) {
+    public VoteJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate, Clock clock, CpfHasher cpfHasher) {
         this.jdbcTemplate = jdbcTemplate;
         this.clock = clock;
+        this.cpfHasher = cpfHasher;
     }
 
     /**
@@ -33,15 +36,15 @@ public class VoteJdbcRepository {
      */
     public boolean insertIntoOpenSession(Long agendaId, String memberId, String cpf, VoteOption vote) {
         String sql = """
-            INSERT INTO votes (session_id, member_id, cpf, vote, created_at)
-            SELECT id, :memberId, :cpf, :vote, :now
+            INSERT INTO votes (session_id, member_id, cpf_hash, vote, created_at)
+            SELECT id, :memberId, :cpfHash, :vote, :now
             FROM voting_sessions
             WHERE agenda_id = :agendaId AND closes_at > :now
             """;
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("agendaId", agendaId)
             .addValue("memberId", memberId)
-            .addValue("cpf", cpf)
+            .addValue("cpfHash", cpfHasher.hash(cpf))
             .addValue("vote", vote.name())
             .addValue("now", Timestamp.from(clock.instant()));
         try {
@@ -62,13 +65,13 @@ public class VoteJdbcRepository {
         String sql = """
             SELECT member_id = :memberId AS same_member
             FROM votes
-            WHERE session_id = :sessionId AND (member_id = :memberId OR cpf = :cpf)
+            WHERE session_id = :sessionId AND (member_id = :memberId OR cpf_hash = :cpfHash)
             LIMIT 1
             """;
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("sessionId", sessionId)
             .addValue("memberId", memberId)
-            .addValue("cpf", cpf);
+            .addValue("cpfHash", cpfHasher.hash(cpf));
         List<Boolean> matches = jdbcTemplate.queryForList(sql, params, Boolean.class);
         if (!matches.isEmpty()) {
             throw matches.getFirst() ? new DuplicateVoteException(memberId) : new CpfAlreadyUsedException(cpf);

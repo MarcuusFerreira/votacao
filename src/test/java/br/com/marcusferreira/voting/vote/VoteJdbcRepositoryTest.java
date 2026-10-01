@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.marcusferreira.voting.AbstractIntegrationTest;
 import br.com.marcusferreira.voting.agenda.AgendaService;
+import br.com.marcusferreira.voting.common.CpfHasher;
 import br.com.marcusferreira.voting.common.exception.CpfAlreadyUsedException;
 import br.com.marcusferreira.voting.common.exception.DuplicateVoteException;
 import br.com.marcusferreira.voting.session.VotingSession;
@@ -26,6 +27,9 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
     NamedParameterJdbcTemplate jdbcTemplate;
 
     @Autowired
+    CpfHasher cpfHasher;
+
+    @Autowired
     AgendaService agendaService;
 
     @Autowired
@@ -38,7 +42,7 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
         List<String> indexes = jdbcTemplate.queryForList(
             "SELECT indexname FROM pg_indexes WHERE tablename = 'votes'", Map.of(), String.class);
 
-        assertThat(indexes).containsExactlyInAnyOrder("votes_pkey", "uk_votes_session_member", "uk_votes_session_cpf");
+        assertThat(indexes).containsExactlyInAnyOrder("votes_pkey", "uk_votes_session_member", "uk_votes_session_cpf_hash");
     }
 
     @Test
@@ -118,5 +122,21 @@ class VoteJdbcRepositoryTest extends AbstractIntegrationTest {
             .isInstanceOf(CpfAlreadyUsedException.class);
         assertThatCode(() -> voteRepository.ensureNotVoted(sessionId, "associado-novo", "99999999999"))
             .doesNotThrowAnyException();
+    }
+
+    @Test
+    void storesOnlyAKeyedHashOfTheCpf() {
+        Long agendaId = agendaService.create("Pauta com CPF protegido", null).getId();
+        Long sessionId = votingSessionService.open(agendaId, Duration.ofSeconds(60)).getId();
+        voteRepository.insertIntoOpenSession(agendaId, "associado-lgpd", "55566677788", VoteOption.YES);
+
+        List<String> columns = jdbcTemplate.queryForList(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'votes'", Map.of(), String.class);
+        String stored = jdbcTemplate.queryForObject(
+            "SELECT cpf_hash FROM votes WHERE session_id = :sessionId AND member_id = 'associado-lgpd'",
+            Map.of("sessionId", sessionId), String.class);
+
+        assertThat(columns).doesNotContain("cpf");
+        assertThat(stored).isEqualTo(cpfHasher.hash("55566677788")).doesNotContain("55566677788");
     }
 }
