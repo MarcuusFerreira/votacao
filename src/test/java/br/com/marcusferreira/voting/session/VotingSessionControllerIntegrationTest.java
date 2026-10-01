@@ -50,6 +50,17 @@ class VotingSessionControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void fractionalDurationIsRejectedInsteadOfTruncated() {
+        Long agendaId = createAgenda("Pauta com duração fracionária");
+
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/pautas/" + agendaId + "/sessoes",
+            json("{\"duracaoSegundos\":1.5}"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(openSession(agendaId, 60).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
     void openingSecondSessionForSameAgendaReturns409() {
         Long agendaId = createAgenda("Pauta duplicada");
         openSession(agendaId, 120);

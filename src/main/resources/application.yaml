@@ -12,6 +12,10 @@ spring:
       # Request handling on virtual threads (Java 25): blocking on the connection pool or on the
       # CPF verification service no longer ties up a limited pool of platform threads.
       enabled: true
+  jackson:
+    deserialization:
+      # Integer fields (e.g. duracaoSegundos) reject 1.5 instead of silently truncating it to 1.
+      accept-float-as-int: false
   jpa:
     # Open Session in View would keep the JPA connection for the whole request while the vote
     # insert (JDBC) takes a second one; under concurrent votes that starves the pool.
