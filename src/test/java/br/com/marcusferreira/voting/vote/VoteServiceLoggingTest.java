@@ -16,6 +16,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.Instant;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +53,8 @@ class VoteServiceLoggingTest {
         appender.start();
         logger.addAppender(appender);
         service = new VoteService(voteRepository, votingSessionService, memberEligibilityClient,
-            new VotingProperties("http://localhost:8080", new VotingProperties.Session(Duration.ofSeconds(60)),
+            new VotingProperties("http://localhost:8080", ZoneId.of("America/Sao_Paulo"),
+                new VotingProperties.Session(Duration.ofSeconds(60)),
                 new VotingProperties.Member("http://example.com", false)));
     }
 
@@ -91,7 +93,8 @@ class VoteServiceLoggingTest {
     @Test
     void rejectedVoteLogDoesNotExposeTheCpf() {
         VoteService verifying = new VoteService(voteRepository, votingSessionService, memberEligibilityClient,
-            new VotingProperties("http://localhost:8080", new VotingProperties.Session(Duration.ofSeconds(60)),
+            new VotingProperties("http://localhost:8080", ZoneId.of("America/Sao_Paulo"),
+                new VotingProperties.Session(Duration.ofSeconds(60)),
                 new VotingProperties.Member("http://example.com", true)));
         when(votingSessionService.getOpenSessionOrThrow(1L)).thenReturn(new VotingSession(1L, Instant.now(), Duration.ofSeconds(60)));
         doThrow(new MemberNotEligibleException("12345678900")).when(memberEligibilityClient).checkEligibility("12345678900");

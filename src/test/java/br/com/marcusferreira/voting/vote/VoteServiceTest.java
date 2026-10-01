@@ -18,6 +18,7 @@ import br.com.marcusferreira.voting.member.MemberEligibilityClient;
 import br.com.marcusferreira.voting.session.VotingSession;
 import br.com.marcusferreira.voting.session.VotingSessionService;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,7 @@ class VoteServiceTest {
     MemberEligibilityClient memberEligibilityClient;
 
     private static VotingProperties properties(boolean verificationEnabled) {
-        return new VotingProperties("http://localhost:8080", 
+        return new VotingProperties("http://localhost:8080", ZoneId.of("America/Sao_Paulo"),
             new VotingProperties.Session(Duration.ofSeconds(60)),
             new VotingProperties.Member("http://example.com", verificationEnabled));
     }

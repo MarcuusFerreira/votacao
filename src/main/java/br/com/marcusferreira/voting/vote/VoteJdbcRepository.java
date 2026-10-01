@@ -30,7 +30,7 @@ public class VoteJdbcRepository {
      * Records the vote in the agenda's session in a single statement, as long as the session is
      * still open. Returns {@code false} when nothing was inserted: the agenda has no session or
      * it is already closed.
-     */ 
+     */
     public boolean insertIntoOpenSession(Long agendaId, String memberId, String cpf, VoteOption vote) {
         String sql = """
             INSERT INTO votes (session_id, member_id, cpf, vote, created_at)

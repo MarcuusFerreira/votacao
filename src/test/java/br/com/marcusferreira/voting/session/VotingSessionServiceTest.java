@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
@@ -35,7 +36,7 @@ class VotingSessionServiceTest {
     AgendaService agendaService;
 
     private static VotingProperties properties() {
-        return new VotingProperties("http://localhost:8080", 
+        return new VotingProperties("http://localhost:8080", ZoneId.of("America/Sao_Paulo"),
             new VotingProperties.Session(Duration.ofSeconds(60)),
             new VotingProperties.Member("http://example.com", false));
     }

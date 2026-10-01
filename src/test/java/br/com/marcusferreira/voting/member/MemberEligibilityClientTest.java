@@ -11,6 +11,7 @@ import br.com.marcusferreira.voting.common.exception.InvalidCpfException;
 import br.com.marcusferreira.voting.common.exception.MemberNotEligibleException;
 import br.com.marcusferreira.voting.common.exception.MemberVerificationUnavailableException;
 import java.time.Duration;
+import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -22,7 +23,7 @@ import org.springframework.web.client.RestClient;
 class MemberEligibilityClientTest {
 
     private VotingProperties properties(String baseUrl) {
-        return new VotingProperties("http://localhost:8080", 
+        return new VotingProperties("http://localhost:8080", ZoneId.of("America/Sao_Paulo"),
             new VotingProperties.Session(Duration.ofSeconds(60)),
             new VotingProperties.Member(baseUrl, true));
     }

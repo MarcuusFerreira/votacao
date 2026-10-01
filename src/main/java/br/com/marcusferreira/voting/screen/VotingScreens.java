@@ -5,6 +5,7 @@ import br.com.marcusferreira.voting.common.VotingProperties;
 import br.com.marcusferreira.voting.vote.VoteOption;
 import br.com.marcusferreira.voting.vote.VotingResult;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Component;
 public class VotingScreens {
 
     public static final int DEFAULT_PAGE_SIZE = 20;
+
+    private static final DateTimeFormatter DISPLAY_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     private final ScreenUrls urls;
     private final VotingProperties properties;
@@ -91,8 +94,9 @@ public class VotingScreens {
     }
 
     public FormScreen resultInProgress(Long agendaId, Instant closesAt) {
+        String closing = DISPLAY_FORMAT.format(closesAt.atZone(properties.displayZone()));
         return new FormScreen("Resultado",
-            List.of(FormItem.text("Sessão em andamento até " + closesAt)),
+            List.of(FormItem.text("Sessão em andamento até " + closing)),
             new ScreenButton("Atualizar", urls.result(agendaId), null),
             backToList());
     }
