@@ -1,0 +1,72 @@
+# Production deployment on a single VM: docker compose -f compose.prod.yaml up -d --build
+# Secrets and the public URL come from .env (see .env.example); compose refuses to start when a
+# required variable is missing, so the app never runs with the development CPF hash key.
+name: votos-prod
+
+services:
+  # Load balancer and the only published port. Discovers the API replicas through Docker's DNS
+  # (see Caddyfile), so replicas can be added, removed or restarted without changing its config.
+  caddy:
+    image: 'caddy:2-alpine'
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - './Caddyfile:/etc/caddy/Caddyfile:ro'
+    ports:
+      - '${APP_PORT:-80}:80'
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Measured under k6 (100k votes, 200 VUs): replicas peaked at ~350 MiB with a 512 MiB limit,
+    # Postgres at ~200 MiB and Caddy at ~55 MiB.
+    deploy:
+      replicas: ${API_REPLICAS:-3}
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-512m}
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/votos'
+      - 'SPRING_DATASOURCE_USERNAME=votos'
+      - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}'
+      # Pools add up across replicas: 3 x 20 = 60 connections, within Postgres' max_connections.
+      - 'SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=${API_POOL_SIZE:-20}'
+      - 'VOTING_CPF_HASH_KEY=${VOTING_CPF_HASH_KEY:?set VOTING_CPF_HASH_KEY in .env}'
+      - 'VOTING_PUBLIC_BASE_URL=${VOTING_PUBLIC_BASE_URL:?set VOTING_PUBLIC_BASE_URL in .env}'
+      - 'VOTING_MEMBER_VERIFICATION_ENABLED=${VOTING_MEMBER_VERIFICATION_ENABLED:-false}'
+      # Memory sizing only (GC and object headers are pinned in the Dockerfile, with the AOT cache).
+      # The heap takes 60% of the container limit, leaving the rest for metaspace, code cache and
+      # GC structures; on OutOfMemoryError the JVM exits and Docker restarts the replica.
+      - 'JDK_JAVA_OPTIONS=-XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError'
+
+  postgres:
+    image: 'postgres:16-alpine'
+    restart: unless-stopped
+    command: ['postgres', '-c', 'max_connections=150']
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    environment:
+      - 'POSTGRES_DB=votos'
+      - 'POSTGRES_USER=votos'
+      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}'
+    # No published port: the database is reachable only by the app, inside the compose network.
+    volumes:
+      - 'postgres-data:/var/lib/postgresql/data'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U votos -d votos']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
