@@ -16,9 +16,11 @@ FROM eclipse-temurin:25-jre
 WORKDIR /application
 COPY --from=build /application/ ./
 
-# The GC is pinned so the JVM AOT cache below is built and used under the same configuration,
-# regardless of the CPU/memory available to the build and to the running container.
-ENV JAVA_OPTS="-XX:+UseG1GC"
+# Flags that shape the JVM AOT cache below: it is only used when they match at runtime, so they
+# are pinned here, regardless of the CPU/memory available to the build and to the container.
+# Compact object headers (JEP 519) shrink every object header from 12 to 8 bytes, reducing the heap.
+# Memory sizing does not affect the cache and is set per deployment through JDK_JAVA_OPTIONS.
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:+UseCompactObjectHeaders"
 
 # Training run for the JVM AOT cache (JEP 483/514/515): starts the context and exits on
 # refresh, recording the loaded and linked classes into app.aot. There is no database during
