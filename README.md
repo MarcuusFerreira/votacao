@@ -36,6 +36,90 @@ compose: ~5,2 s na JVM pura → ~4,6 s só com Spring AOT → **~2,0 s** com
 Spring AOT + cache AOT. A otimização fica isolada no `Dockerfile`: o
 `bootRun` e os testes seguem o caminho normal da JVM.
 
+## Deploy em nuvem
+
+O enunciado pede uma solução executada na nuvem. Como este é um teste
+técnico, o artefato de deploy é o `compose.prod.yaml`: ele sobe em qualquer
+máquina com Docker (uma VM em qualquer provedor) o ambiente completo, com
+um load balancer na frente de várias réplicas da API.
+
+```
+             :80
+  app mobile ───► Caddy (load balancer, round robin)
+                    ├──► API réplica 1 ─┐
+                    ├──► API réplica 2 ─┼──► Postgres (volume persistente)
+                    └──► API réplica 3 ─┘
+```
+
+```bash
+cp .env.example .env    # preencha; gere os segredos com: openssl rand -hex 32
+docker compose -f compose.prod.yaml up -d --build
+```
+
+- **Segredos e URL pública pelo `.env`**: o compose se recusa a subir se
+  `POSTGRES_PASSWORD`, `VOTING_CPF_HASH_KEY` ou `VOTING_PUBLIC_BASE_URL`
+  faltarem, então a aplicação nunca roda com a chave de desenvolvimento do
+  HMAC. `VOTING_PUBLIC_BASE_URL` é o endereço do load balancer visto pelo
+  app (ex.: `http://<ip-da-vm>`), base das URLs de todas as telas.
+- **Load balancer (Caddy)**: é o único serviço com porta publicada. Ele
+  descobre as réplicas pelo DNS interno do Docker (re-resolvido a cada 5 s),
+  então réplicas podem ser adicionadas, removidas ou reiniciadas sem mudar
+  sua configuração; uma requisição que não alcança uma réplica é refeita em
+  outra. Trocar `:80` por um domínio no `Caddyfile` ativa HTTPS automático.
+- **Réplicas** (`API_REPLICAS`, padrão 3): a API não guarda estado em
+  memória — o encerramento da sessão é derivado de `closes_at` e a
+  unicidade dos votos está no banco —, então escala horizontalmente sem
+  mudança de código. Os pools somam entre as réplicas: 3 × 20 conexões
+  (`API_POOL_SIZE`) ficam abaixo do `max_connections` de 150 configurado no
+  Postgres.
+- **Limites de memória medidos**: sob o teste de carga (100 mil votos, 200
+  VUs), cada réplica atingiu no máximo ~350 MiB, o Postgres ~200 MiB e o
+  Caddy ~55 MiB. Os limites são 512 MiB por réplica (`API_MEMORY_LIMIT`),
+  512 MiB para o Postgres e 128 MiB para o Caddy — cerca de 2,2 GB no total
+  com 3 réplicas. A JVM usa *compact object headers* (JEP 519, cabeçalho de
+  cada objeto de 12 para 8 bytes), o que baixou o pico das réplicas de
+  ~490 MiB para ~350 MiB, e dimensiona o heap em 60% do limite do container
+  (`JDK_JAVA_OPTIONS`), deixando o restante para metaspace, code cache e
+  estruturas do GC. Com `-XX:+ExitOnOutOfMemoryError`, uma réplica sem
+  memória encerra e é reiniciada pelo Docker, em vez de ficar degradada. As
+  flags que afetam o cache AOT (GC e *compact headers*) ficam fixas no
+  `Dockerfile`, pois o cache só é aproveitado quando elas são iguais no
+  build e na execução.
+- **Postgres**: sem porta publicada, acessível só pela rede interna do
+  compose; dados no volume `postgres-data`.
+
+Medido localmente (mesmo ambiente do teste de carga abaixo, com Caddy,
+APIs, Postgres e k6 na mesma máquina; 100 mil votos, 200 VUs):
+
+| Réplicas | Tempo de envio | Latência média | p95 | Erros |
+|---|---|---|---|---|
+| 1 (pool 40) | 24,9 s | 49,6 ms | 120 ms | 0% |
+| 3 (pool 20 cada) | 24,7 s | 48,8 ms | 87 ms | 0% |
+
+A vazão não muda: o gargalo é a latência de commit no Postgres (ver
+decisões de arquitetura), e numa única máquina as réplicas disputam a mesma
+CPU. O ganho das réplicas é **disponibilidade** — derrubar uma réplica
+durante tráfego contínuo não gerou nenhuma requisição com erro (300 de 300
+respostas 200) — e uma cauda de latência menor (p95). Vazão maior viria de
+escalar o banco, não a API.
+
+### Com mais tempo
+
+- **Pipeline de CI/CD com GitHub Actions**: a cada push, rodar os testes
+  (com o gate de cobertura), fazer o build da imagem e publicá-la num
+  registry (por exemplo, o GitHub Container Registry); o deploy passaria a
+  baixar a imagem pronta em vez de compilar na máquina de destino.
+- **Terraform** para provisionar a infraestrutura (máquinas, rede, regras
+  de firewall e banco) de forma versionada e reproduzível, em vez de
+  criá-la manualmente no console do provedor.
+- **Kubernetes**, dependendo da volumetria: com tráfego maior ou variável,
+  substituiria o `compose.prod.yaml` pelas vantagens que um único host não
+  oferece — autoscaling horizontal (HPA) pela carga, rolling updates sem
+  indisponibilidade, self-healing com health checks (liveness/readiness),
+  distribuição das réplicas entre vários nós e gestão de segredos e
+  configuração separada da imagem. Nesse cenário, o banco iria para um
+  Postgres gerenciado, já que é ele que limita a vazão.
+
 ## Configuração
 
 | Propriedade | Default | Descrição |
